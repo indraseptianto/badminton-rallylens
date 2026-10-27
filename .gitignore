@@ -1,0 +1,88 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ===== uv / venv =====
+.venv/
+venv/
+env/
+# uv.lock is committed
+
+# ===== Node / browser tooling =====
+node_modules/
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# ===== Notebooks =====
+.ipynb_checkpoints/
+notebooks/**/*.ipynb_checkpoints
+
+# ===== Environment / secrets =====
+.env
+.env.local
+.env.*.local
+
+# ===== Data / models / weights =====
+data/
+models/*
+*.pt
+*.onnx
+*.pth
+*.weights
+wandb/
+mlruns/
+# Re-include committed weights (must come after blanket *.pt / *.pth patterns)
+!models/.gitkeep
+!models/shuttle_tracknet.pth
+!models/inpaintnet_best.pth
+
+# ===== Outputs — track outputs/demo/, drop heavy binaries =====
+outputs/**/*.mp4
+outputs/**/*.mov
+outputs/**/*.mkv
+outputs/**/*.avi
+outputs/**/frames/
+outputs/**/*.parquet
+!outputs/demo/
+!outputs/demo/**
+outputs/demo/**/*.mp4
+
+# ===== Label Studio exports =====
+labeled/
+exports/
+
+# ===== macOS =====
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# ===== Logs =====
+*.log
+logs/

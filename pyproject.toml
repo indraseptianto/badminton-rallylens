@@ -1,0 +1,99 @@
+[project]
+name = "rallylens"
+version = "0.1.0"
+description = "RallyLens — automated badminton player and shuttlecock tracking CLI pipeline"
+readme = "README.md"
+authors = [
+    { name = "yeonseong", email = "yeonseong.dev@gmail.com" },
+]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["badminton", "computer-vision", "yolo", "tracking", "sports-analytics", "claude"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = [
+    "click>=8.3.2",
+    "imageio>=2.31.0",
+    "lapx>=0.9.4",
+    "opencv-python>=4.13.0.92",
+    "pydantic>=2.0",
+    "python-dotenv>=1.2.2",
+    "ultralytics>=8.4.37",
+    "yt-dlp>=2026.3.17",
+]
+
+[project.optional-dependencies]
+report = ["google-genai>=1.33.0"]
+
+[project.urls]
+Homepage = "https://github.com/YeonSeong-Lee/rallylens"
+Repository = "https://github.com/YeonSeong-Lee/rallylens"
+Issues = "https://github.com/YeonSeong-Lee/rallylens/issues"
+
+[project.scripts]
+rallylens = "rallylens.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.3,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=9.0.3",
+    "ruff>=0.15.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src/rallylens"]
+
+[[tool.mypy.overrides]]
+module = [
+    "ultralytics",
+    "ultralytics.*",
+    "cv2",
+    "cv2.*",
+    "yt_dlp",
+    "yt_dlp.*",
+    "dotenv",
+]
+ignore_missing_imports = true
+
+# vision/detect_track is tangled with ultralytics + cv2 which have incomplete
+# type stubs. Keep strict mode everywhere else.
+[[tool.mypy.overrides]]
+module = ["rallylens.vision.detect_track"]
+disallow_untyped_calls = false
+warn_return_any = false
+disable_error_code = ["attr-defined", "arg-type", "union-attr", "name-defined"]
