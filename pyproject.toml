@@ -97,3 +97,11 @@ module = ["rallylens.vision.detect_track"]
 disallow_untyped_calls = false
 warn_return_any = false
 disable_error_code = ["attr-defined", "arg-type", "union-attr", "name-defined"]
+
+[[tool.mypy.overrides]]
+# Rule bank ported from ZSHYC/BadmintonTrackNet — heavily dynamic dict usage
+# inside the rule checks; strict generics add noise without catching real bugs.
+module = ["rallylens.analysis.events.rules"]
+disallow_untyped_calls = false
+warn_return_any = false
+disable_error_code = ["type-arg", "operator", "call-overload", "return-value", "unused-ignore"]

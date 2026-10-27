@@ -8,6 +8,7 @@ from pathlib import Path
 from rallylens.common import get_logger, read_video_properties
 from rallylens.ingest.downloader import download_video
 from rallylens.pipeline.court import run_court_detection
+from rallylens.pipeline.events import run_events_pipeline
 from rallylens.pipeline.io import save_player_detections, viz_court_path, viz_overlay_path
 from rallylens.pipeline.shuttle import run_shuttle_pipeline
 from rallylens.vision.detect_track import TrackerName, detect_and_track_players
@@ -52,13 +53,24 @@ def run_full_pipeline(
     # 2. Shuttle detection
     shuttle_track = run_shuttle_pipeline(video_path, video_id)
 
-    # 3. Court calibration
+    # 3. Rally event detection (landing / hit / out_of_frame)
+    fps = 30
+    try:
+        fps = int(read_video_properties(video_path).fps)
+    except Exception:  # noqa: BLE001 — properties are best-effort
+        _log.warning("could not read video fps — defaulting to %d", fps)
+    try:
+        run_events_pipeline(video_path, video_id, track=shuttle_track, fps=fps)
+    except Exception:  # noqa: BLE001 — events are best-effort, never block the run
+        _log.warning("event detection failed — continuing without events", exc_info=True)
+
+    # 4. Court calibration
     corners = run_court_detection(video_path, video_id)
     if corners is None:
         _log.warning("court detection failed — skipping visualization")
         return PipelineResult(video_id=video_id, detections_path=det_path)
 
-    # 4. Visualization
+    # 5. Visualization
     overlay_out = render_overlay_video(
         video_path,
         player_detections,
@@ -67,13 +79,12 @@ def run_full_pipeline(
         corners=corners,
     )
 
-    props = read_video_properties(video_path)
     court_out = render_viz_court(
         player_detections,
         shuttle_track,
         corners,
         viz_court_path(video_id),
-        fps=props.fps,
+        fps=fps,
     )
 
     return PipelineResult(

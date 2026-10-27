@@ -229,8 +229,26 @@ Output: `data/tracks/<video_id>/<video_id>_shuttle.jsonl`
 | Option | Default | Description |
 |---|---|---|
 | `--weights` | `models/shuttle_tracknet.pth` | Path to TrackNetV3 weights |
+| `--no-rectify` | off | Skip trajectory rectification (linear gap-fill + InpaintNet) |
 
 </details>
+
+### `detect-events` — rally event detection (landing / hit / out_of_frame)
+
+```bash
+uv run rallylens detect-events <video_path> [OPTIONS]
+```
+
+Needs a shuttle track first (from `detect-shuttle`). Rule-based detector
+ported from [ZSHYC/BadmintonTrackNet](https://github.com/ZSHYC/BadmintonTrackNet)
+— see `docs/EVENTS.md` for the rule bank, coordinate convention, and how to
+enable the optional BounceNet classifier later.
+
+Output: `data/events/<video_id>/<video_id>_events.jsonl`
+
+| Option | Default | Description |
+|---|---|---|
+| `--fps` | 30 | Video framerate for kinematics scaling |
 
 ### `calibrate` — court calibration
 

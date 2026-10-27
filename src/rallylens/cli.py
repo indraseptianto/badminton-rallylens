@@ -13,10 +13,16 @@ from rallylens.ingest.downloader import download_video, parse_time
 from rallylens.pipeline import (
     run_court_detection,
     run_court_detection_interactive,
+    run_events_pipeline,
     run_full_pipeline,
     run_shuttle_pipeline,
 )
-from rallylens.pipeline.io import court_corners_path, save_player_detections, shuttle_track_path
+from rallylens.pipeline.io import (
+    court_corners_path,
+    events_path,
+    save_player_detections,
+    shuttle_track_path,
+)
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
 
 _log = get_logger(__name__)
@@ -112,6 +118,26 @@ def detect_shuttle_cmd(video_path: Path, weights: Path | None, no_rectify: bool)
     track = run_shuttle_pipeline(video_path, video_path.stem, weights, rectify=not no_rectify)
     out_path = shuttle_track_path(video_path.stem)
     click.echo(f"shuttle track ({len(track)} points): {out_path}")
+
+
+@cli.command("detect-events")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--fps",
+    type=int,
+    default=30,
+    show_default=True,
+    help="Video framerate used by the kinematics calculator.",
+)
+def detect_events_cmd(video_path: Path, fps: int) -> None:
+    """Detect rally events (landing / hit / out_of_frame) from a shuttle track."""
+    events = run_events_pipeline(video_path, video_path.stem, fps=fps)
+    out_path = events_path(video_path.stem)
+    click.echo(f"events ({len(events)}): {out_path}")
+    for e in events:
+        click.echo(
+            f"  frame {e.frame_idx}: {e.event_type} ({e.rule}, conf={e.confidence:.2f}) @ ({e.x}, {e.y})"
+        )
 
 
 @cli.command("calibrate")

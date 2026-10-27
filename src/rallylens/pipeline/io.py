@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from rallylens.analysis.events.detector import ShuttleEvent
 from rallylens.analysis.metrics import MatchMetrics
 from rallylens.config import (
     CALIBRATION_DIR,
     DETECTIONS_DIR,
+    EVENTS_DIR,
     REPORTS_DIR,
     TRACKS_DIR,
     VIZ_DIR,
@@ -54,6 +56,25 @@ def save_shuttle_track(track: list[ShuttlePoint], video_id: str) -> Path:
 
 def load_shuttle_track(video_id: str) -> list[ShuttlePoint]:
     return load_jsonl(shuttle_track_path(video_id), ShuttlePoint)
+
+
+# ---------------------------------------------------------------------------
+# Rally events
+# ---------------------------------------------------------------------------
+
+
+def events_path(video_id: str) -> Path:
+    return EVENTS_DIR / video_id / f"{video_id}_events.jsonl"
+
+
+def save_events(events: list[ShuttleEvent], video_id: str) -> Path:
+    path = events_path(video_id)
+    save_jsonl(events, path)
+    return path
+
+
+def load_events(video_id: str) -> list[ShuttleEvent]:
+    return load_jsonl(events_path(video_id), ShuttleEvent)
 
 
 # ---------------------------------------------------------------------------
