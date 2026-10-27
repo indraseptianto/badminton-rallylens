@@ -1,5 +1,6 @@
 """Kinematics (velocity / acceleration / curvature) from a repaired shuttle
-trajectory — ported from ZSHYC/BadmintonTrackNet (tracknet/events/kinematics.py).
+trajectory — ported from ZSHYC/BadmintonTrackNet (tracknet/events/kinematics.py),
+MIT License, Copyright (c) 2024 qaz812345.
 
 Input is the InpaintNet-repaired trajectory: dense per-frame coordinates.
 Velocity is expressed in pixels/frame, optionally scaled to the video fps

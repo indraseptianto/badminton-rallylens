@@ -1,5 +1,10 @@
 # TrackNetV3 Integration & Model-Switching Guide
 
+> **License / attribution:** TrackNetV3 code and weights are
+> [qaz812345/TrackNetV3](https://github.com/qaz812345/TrackNetV3), MIT
+> License, Copyright (c) 2024 qaz812345. Full map in
+> [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
 RallyLens tracks the shuttlecock with **TrackNetV3** (two-stage: heatmap
 detection + trajectory rectification), then applies a model-free linear
 gap-fill. This document explains how the pipeline is wired, how the official

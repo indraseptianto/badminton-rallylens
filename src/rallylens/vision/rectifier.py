@@ -6,6 +6,9 @@ shuttlecock trajectory, occluded / uncertain frames are repaired by a 1D U-Net
 mask. This module implements that two-stage refinement on top of the sparse
 ``ShuttlePoint`` list produced by ``ShuttleTracker``.
 
+Architecture & weights: qaz812345/TrackNetV3, MIT License,
+Copyright (c) 2024 qaz812345 — see THIRD_PARTY_NOTICES.md.
+
 Refinement pipeline
 -------------------
 1. Build a dense per-frame coordinate series from the sparse detections.

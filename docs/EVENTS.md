@@ -5,6 +5,10 @@ Rule-based event detector ported from
 (`tracknet/events/`), adapted for RallyLens coordinate conventions and coding
 standards.
 
+> **License / attribution:** MIT License, Copyright (c) 2024 qaz812345 (the
+> BadmintonTrackNet repo retains the original TrackNetV3 license). Full map in
+> [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
 ## What it does
 
 Turns the *repaired shuttle trajectory* (from `detect-shuttle`) into a list of

@@ -476,4 +476,17 @@ Coding conventions, mypy overrides, and notes on adding new layers are documente
 
 ## License
 
-MIT. YOLO11 weights are [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html); this project is for portfolio / educational use only.
+**MIT** (see [LICENSE](LICENSE)). 
+
+This repo adapts substantial code and ships model weights from third-party
+open-source projects. Per MIT terms, the full attribution map — source repos,
+exact upstream file paths, licenses, and copyright holders — lives in
+**[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)**:
+
+- **TrackNetV3** ([qaz812345/TrackNetV3](https://github.com/qaz812345/TrackNetV3)) — shuttle tracking architecture, InpaintNet rectifier integration, and the shipped `shuttle_tracknet.pth` / `inpaintnet_best.pth` weights (MIT, © 2024 qaz812345).
+- **BadmintonTrackNet** ([ZSHYC/BadmintonTrackNet](https://github.com/ZSHYC/BadmintonTrackNet)) — the rule-bank event detector in `analysis/events/` (MIT, © 2024 qaz812345).
+- Original RallyLens pipeline ([YeonSeong-Lee/rallylens](https://github.com/YeonSeong-Lee/rallylens)) — declared MIT upstream.
+
+YOLO11 weights are [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html); the
+`web/` app is AGPL-3.0-only (see `web/LICENSE`). This project is for
+portfolio / educational use only.

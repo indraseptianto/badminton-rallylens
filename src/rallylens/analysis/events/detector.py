@@ -1,5 +1,6 @@
 """Badminton event detection (rule-based Phase 1) — ported from
-ZSHYC/BadmintonTrackNet, adapted for rallylens coordinate conventions.
+ZSHYC/BadmintonTrackNet (tracknet/events/detector.py), MIT License,
+Copyright (c) 2024 qaz812345, adapted for rallylens coordinate conventions.
 
 The original project detects events in TrackNet's model space (512×288) with
 thresholds tuned at that resolution. RallyLens shuttle tracks live in

@@ -4,6 +4,8 @@ Bounce Candidate Generator for Badminton
 
 使用规则方法检测可能的落点和击球点，作为后续分类网络的输入。
 
+Ported from ZSHYC/BadmintonTrackNet (tracknet/events/candidate_generator.py),
+MIT License, Copyright (c) 2024 qaz812345.
 """
 
 from typing import Any
