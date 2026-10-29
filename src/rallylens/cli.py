@@ -15,12 +15,14 @@ from rallylens.pipeline import (
     run_court_detection_interactive,
     run_events_pipeline,
     run_full_pipeline,
+    run_shots_pipeline,
     run_shuttle_pipeline,
 )
 from rallylens.pipeline.io import (
     court_corners_path,
     events_path,
     save_player_detections,
+    shots_path,
     shuttle_track_path,
 )
 from rallylens.vision.detect_track import coerce_tracker_name, detect_and_track_players
@@ -113,9 +115,21 @@ def detect_cmd(video_path: Path, tracker: str, singles: bool, imgsz: int) -> Non
     default=False,
     help="Skip trajectory rectification (linear gap-fill + InpaintNet).",
 )
-def detect_shuttle_cmd(video_path: Path, weights: Path | None, no_rectify: bool) -> None:
+@click.option(
+    "--no-ensemble",
+    is_flag=True,
+    default=False,
+    help="Disable temporal ensemble (classic one-pass TrackNet windows).",
+)
+def detect_shuttle_cmd(video_path: Path, weights: Path | None, no_rectify: bool, no_ensemble: bool) -> None:
     """Run TrackNetV3 shuttlecock detection on a video file."""
-    track = run_shuttle_pipeline(video_path, video_path.stem, weights, rectify=not no_rectify)
+    track = run_shuttle_pipeline(
+        video_path,
+        video_path.stem,
+        weights,
+        rectify=not no_rectify,
+        ensemble=not no_ensemble,
+    )
     out_path = shuttle_track_path(video_path.stem)
     click.echo(f"shuttle track ({len(track)} points): {out_path}")
 
@@ -137,6 +151,27 @@ def detect_events_cmd(video_path: Path, fps: int) -> None:
     for e in events:
         click.echo(
             f"  frame {e.frame_idx}: {e.event_type} ({e.rule}, conf={e.confidence:.2f}) @ ({e.x}, {e.y})"
+        )
+
+
+@cli.command("detect-shots")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--fps",
+    type=int,
+    default=30,
+    show_default=True,
+    help="Video framerate used by the kinematics calculator.",
+)
+def detect_shots_cmd(video_path: Path, fps: int) -> None:
+    """Classify stroke types (smash / drive / drop / clear / net) from events."""
+    shots = run_shots_pipeline(video_path, video_path.stem, fps=fps)
+    out_path = shots_path(video_path.stem)
+    click.echo(f"shots ({len(shots)}): {out_path}")
+    for s in shots:
+        click.echo(
+            f"  frame {s.frame_idx}: {s.shot_type} (conf={s.confidence:.2f}, "
+            f"speed={s.speed_px:.1f} px/f, player={s.player_track_id})"
         )
 
 

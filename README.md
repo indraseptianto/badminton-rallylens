@@ -70,11 +70,14 @@ implementation.
 ## Features
 
 - **Player tracking** — YOLO11-pose skeleton estimation + ByteTrack multi-object tracker, auto-selecting the 2 singles players
-- **Shuttlecock tracking** — TrackNetV3 sliding-window heatmap inference recovers high-speed shuttle trajectories
+- **Shuttlecock tracking** — TrackNetV3 sliding-window heatmap inference with **temporal ensemble voting** (multi-window consensus, see `docs/UPGRADES.md`) recovers high-speed shuttle trajectories
+- **Trajectory rectification** — InpaintNet + linear gap-fill repairs occluded frames, with a **floor gate** that refuses to fabricate landings (`docs/TRACKNETV3.md`, `docs/UPGRADES.md`)
+- **Rally event detection** — rule-based landing / hit / out_of_frame events from the repaired trajectory (ported from BadmintonTrackNet, `docs/EVENTS.md`)
+- **Shot classification** — local, rule-based stroke types (smash / drive / drop / clear / net) from hit events, no cloud API (`docs/SHOTS.md`)
 - **Court calibration** — Hough-based automatic corner detection (or an interactive manual picker)
 - **Visualization** — overlay MP4 (with a top-view PIP) + a court top-view trajectory GIF (heatmap background)
 - **LLM analysis report** — Vertex AI Gemini structured output auto-generates a Korean-language rally analysis
-- **One-command CLI** — `uv run rallylens run <url>` handles download through tracking in a single call
+- **One-command CLI** — `uv run rallylens run <url>` handles download through tracking to shots in a single call (events + shots run automatically)
 
 ---
 
@@ -245,6 +248,23 @@ ported from [ZSHYC/BadmintonTrackNet](https://github.com/ZSHYC/BadmintonTrackNet
 enable the optional BounceNet classifier later.
 
 Output: `data/events/<video_id>/<video_id>_events.jsonl`
+
+| Option | Default | Description |
+|---|---|---|
+| `--fps` | 30 | Video framerate for kinematics scaling |
+
+### `detect-shots` — shot classification (smash / drive / drop / clear / net)
+
+```bash
+uv run rallylens detect-shots <video_path> [OPTIONS]
+```
+
+Needs a shuttle track + events first (from `detect-shuttle` +
+`detect-events`). Local rule-based classifier — no cloud API — that labels
+each `hit` event with a stroke type using shuttle speed, vertical velocity,
+and hit height. See `docs/SHOTS.md` for the rule bank and tuning.
+
+Output: `data/shots/<video_id>/<video_id>_shots.jsonl`
 
 | Option | Default | Description |
 |---|---|---|

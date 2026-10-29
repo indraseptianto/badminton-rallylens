@@ -37,6 +37,18 @@ against the official checkpoints; both are documented in `docs/TRACKNETV3.md`.
 | **License** | Declared MIT in its `pyproject.toml` (no LICENSE file upstream at time of writing) |
 | **Adapted here** | the overall pipeline structure: `src/rallylens/pipeline/`, `vision/detect_track.py`, `vision/court_detector.py`, `viz/`, `ingest/`, CLI skeleton |
 
+## 4. Concept-only inspiration (no code copied)
+
+The following **concepts** were studied and independently re-implemented —
+no source code was copied (the originals below are under proprietary /
+non-portable licenses):
+
+| | |
+|---|---|
+| **Project** | [amramer/Badminton-visionAI](https://github.com/amramer/Badminton-visionAI) — end-to-end badminton analysis (YOLOv8 + SAM + TrackNet + shot classification via Roboflow cloud API) |
+| **License** | **Proprietary / All Rights Reserved** — `LICENSE.txt` forbids redistribution and commercial use; we only took ideas |
+| **Ideas adapted (re-implemented from scratch)** | ① temporal multi-window ensemble for TrackNet heatmaps → `shuttle_tracker.py` vote clustering (paper-common technique, see `docs/UPGRADES.md`); ② height-gated inpaint mask → `rectifier.py` floor gate; ③ shot classification → `analysis/shot_classifier.py` (implemented locally instead of the cloud API version) |
+
 ## License summary
 
 | Component in this repo | License | Copyright |

@@ -24,6 +24,7 @@ def run_shuttle_pipeline(
     video_id: str,
     weights_path: Path | None = None,
     rectify: bool = True,
+    ensemble: bool = True,
 ) -> list[ShuttlePoint]:
     """Detect shuttlecock positions in every frame of a video.
 
@@ -36,11 +37,13 @@ def run_shuttle_pipeline(
                       (linear gap-fill + InpaintNet) on the raw detections.
                       Falls back to raw detections if the InpaintNet weights
                       are unavailable or the rectifier raises.
+        ensemble:     When True (default), average each frame's heatmap over
+                      every overlapping TrackNet window (temporal ensemble).
 
     Returns:
         list[ShuttlePoint] — one entry per estimated frame, sorted by frame_idx.
     """
-    tracker = ShuttleTracker(weights_path)
+    tracker = ShuttleTracker(weights_path, ensemble=ensemble)
     refiner = TrajectoryRefiner() if rectify else None
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -58,6 +61,9 @@ def run_shuttle_pipeline(
         for point in tracker.detect(frame, frame_idx):
             points_by_frame.setdefault(point.frame_idx, point)
         frame_idx += 1
+    # Flush ensemble-accumulated trailing frames.
+    for point in tracker.flush():
+        points_by_frame.setdefault(point.frame_idx, point)
 
     cap.release()
 

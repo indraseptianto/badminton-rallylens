@@ -10,6 +10,7 @@ from rallylens.ingest.downloader import download_video
 from rallylens.pipeline.court import run_court_detection
 from rallylens.pipeline.events import run_events_pipeline
 from rallylens.pipeline.io import save_player_detections, viz_court_path, viz_overlay_path
+from rallylens.pipeline.shots import run_shots_pipeline
 from rallylens.pipeline.shuttle import run_shuttle_pipeline
 from rallylens.vision.detect_track import TrackerName, detect_and_track_players
 from rallylens.viz import render_overlay_video, render_viz_court
@@ -63,6 +64,17 @@ def run_full_pipeline(
         run_events_pipeline(video_path, video_id, track=shuttle_track, fps=fps)
     except Exception:  # noqa: BLE001 — events are best-effort, never block the run
         _log.warning("event detection failed — continuing without events", exc_info=True)
+
+    # 3b. Shot classification (stroke type per hit event).
+    try:
+        run_shots_pipeline(
+            video_path,
+            video_id,
+            track=shuttle_track,
+            fps=fps,
+        )
+    except Exception:  # noqa: BLE001 — shots are best-effort too
+        _log.warning("shot classification failed — continuing without shots", exc_info=True)
 
     # 4. Court calibration
     corners = run_court_detection(video_path, video_id)

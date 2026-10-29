@@ -93,10 +93,17 @@ class TrajectoryRefiner:
         weights_path: Path | None = None,
         seq_len: int = SEQ_LEN,
         linear_gap_frames: int = 12,
+        height_mask_ratio: float = 0.05,
     ) -> None:
         resolved = weights_path or (MODELS_DIR / DEFAULT_WEIGHTS)
         self.seq_len = seq_len
         self.linear_gap_frames = linear_gap_frames
+        # Frames occluded near the bottom of the image (within this fraction
+        # of the frame height) are treated as "shuttle left the camera view"
+        # rather than "shuttle occluded": rectifying them would fabricate a
+        # false trajectory close to the floor. Mirrors the height-gated
+        # inpaint mask used by BadmintonTrackNet.
+        self.height_mask_ratio = height_mask_ratio
         self._model: InpaintNet | None = None
         self._enabled = False
 
@@ -165,6 +172,12 @@ class TrajectoryRefiner:
         # ones InpaintNet is asked to rectify.
         missing: np.ndarray = np.asarray(np.isnan(dense).any(axis=1), dtype=bool)
 
+        # Height gate: long gaps whose observed endpoints sit near the floor
+        # (bottom `height_mask_ratio` of the frame) are "shuttle left the
+        # camera view after landing" — rectifying them would fabricate a false
+        # floor trajectory, so they are dropped entirely instead of inpainted.
+        floor_gate = self._floor_gate(missing, dense, video_size)
+
         # 2. Seed gaps with linear interpolation (short gaps = final answer,
         # long gaps = plausible input for InpaintNet). Half-inpaint: seed
         # every frame, then let the model refine only the occluded ones.
@@ -174,12 +187,15 @@ class TrajectoryRefiner:
         # longer than ``linear_gap_frames`` go through the model; short gaps
         # are already answered by the cheap linear fill.
         if self._enabled and self._model is not None:
-            missing_rectify = self._long_gap_mask(missing)
+            missing_rectify = self._long_gap_mask(missing & ~floor_gate)
             dense = self._inpaint_gaps(dense, missing_rectify, video_size)
 
         # 4. Emit ShuttlePoint for every frame that got an estimate.
         # Frames in windows too sparsely observed (e.g. between rallies) are
-        # dropped rather than hallucinated.
+        # dropped rather than hallucinated — including floor-gated gaps.
+        for gated_offset in np.nonzero(floor_gate)[0]:
+            dense[gated_offset] = np.nan
+
         out: list[ShuttlePoint] = []
         for offset in range(span):
             row = dense[offset]
@@ -191,6 +207,50 @@ class TrajectoryRefiner:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    def _floor_gate(
+        self,
+        missing: np.ndarray,
+        dense: np.ndarray,
+        video_size: tuple[int, int] | None,
+    ) -> np.ndarray:
+        """Mark long gaps that end near the floor as off-view (drop, don't inpaint).
+
+        A gap is floor-gated when at least one of its bounding observed
+        frames sits in the bottom ``height_mask_ratio`` of the frame — the
+        typical signature of the shuttle having landed or left the camera
+        view. Short gaps are never gated: a momentary occlusion near the
+        floor (net shadow, player leg) is still worth a linear fill.
+        """
+        n = len(missing)
+        gate = np.zeros(n, dtype=bool)
+        if n == 0:
+            return gate
+        fallback_h = float(np.nanmax(dense[:, 1]) + 1)
+        if video_size and video_size[1]:
+            vh: float = float(video_size[1])
+        else:
+            vh = fallback_h
+        floor_y = (1.0 - self.height_mask_ratio) * vh
+
+        i = 0
+        while i < n:
+            if not missing[i]:
+                i += 1
+                continue
+            j = i
+            while j < n and missing[j]:
+                j += 1
+            gap_len = j - i
+            if gap_len > self.linear_gap_frames:
+                y_before = dense[i - 1, 1] if i > 0 and not missing[i - 1] else np.nan
+                y_after = dense[j, 1] if j < n and not missing[j] else np.nan
+                if (not np.isnan(y_before) and y_before >= floor_y) or (
+                    not np.isnan(y_after) and y_after >= floor_y
+                ):
+                    gate[i:j] = True
+            i = j
+        return gate
 
     def _long_gap_mask(self, missing: np.ndarray) -> np.ndarray:
         """Keep only missing frames that belong to a run longer than

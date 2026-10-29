@@ -9,6 +9,9 @@ standards.
 > BadmintonTrackNet repo retains the original TrackNetV3 license). Full map in
 > [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
+**Companion stage:** `detect-shots` consumes the `hit` events produced here
+and classifies each into a stroke type — see `docs/SHOTS.md`.
+
 ## What it does
 
 Turns the *repaired shuttle trajectory* (from `detect-shuttle`) into a list of

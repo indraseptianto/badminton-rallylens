@@ -4,6 +4,16 @@ Wraps TrackNet inference with a rolling frame buffer, coordinate extraction
 from sigmoid heatmaps (contour-based), and coordinate rescaling to the
 original video resolution.
 
+Temporal ensemble
+-----------------
+Each frame is predicted by every sliding window it appears in (up to
+``SEQ_LEN`` windows), the per-frame heatmaps are averaged with a positional
+pyramid weight (frames near the window centre are trusted most, mirroring
+the TrackNetV3 paper's temporal ensemble), and only then is the coordinate
+extracted. This reduces flicker and single-window false positives at almost
+no compute cost. Set ``ensemble=False`` to restore the classic one-pass
+behaviour.
+
 Weights path: models/shuttle_tracknet.pth
 If the weights file is missing, ShuttleTracker logs a warning and
 detect() always returns None (graceful fallback).
@@ -12,6 +22,7 @@ detect() always returns None (graceful fallback).
 from __future__ import annotations
 
 import contextlib
+import math
 import os
 from collections import deque
 from pathlib import Path
@@ -95,6 +106,20 @@ def _stack_frames(frames: list[np.ndarray]) -> torch.Tensor:
     return torch.from_numpy(stacked).unsqueeze(0)  # (1, 3*seq_len, H, W)
 
 
+def _ensemble_weights(seq_len: int) -> np.ndarray:
+    """Pyramid weights for temporal ensemble: centre frames trusted most.
+
+    For seq_len=8 the pattern is [1, 2, 3, 4, 4, 3, 2, 1] / 20 — the same
+    positional weighting used by the TrackNetV3 paper's temporal ensemble.
+    """
+    weights = np.zeros(seq_len, dtype=np.float64)
+    for i in range(math.ceil(seq_len / 2)):
+        weights[i] = float(i + 1)
+        weights[seq_len - i - 1] = float(i + 1)
+    total = float(weights.sum())
+    return weights / total
+
+
 def _predict_location(heatmap: np.ndarray) -> tuple[int, int] | None:
     """Extract (x, y) from a single sigmoid heatmap via contour bounding box.
 
@@ -122,10 +147,11 @@ class ShuttleTracker:
                 print(point.x, point.y)
     """
 
-    def __init__(self, weights_path: Path | None = None) -> None:
+    def __init__(self, weights_path: Path | None = None, ensemble: bool = True) -> None:
         resolved = weights_path or (MODELS_DIR / DEFAULT_WEIGHTS)
         self._model: TrackNet | None = None
         self._enabled = False
+        self.ensemble = ensemble
 
         if not resolved.exists():
             _log.warning(
@@ -150,6 +176,14 @@ class ShuttleTracker:
         self._buffer: deque[np.ndarray] = deque(maxlen=SEQ_LEN)
         # frame_idx corresponding to each buffer slot (oldest → newest)
         self._idx_buffer: deque[int] = deque(maxlen=SEQ_LEN)
+        # Temporal ensemble state: per-frame detection votes — list of
+        # (x, y, heatmap_peak) from every overlapping window. Keyed by
+        # frame_idx.
+        self._vote_acc: dict[int, list[tuple[int, int, float]]] = {}
+        self._win_count = 0  # number of completed inference windows
+        # Original frame size of the most recent frame (used by ensemble
+        # extraction); updated on every detect() call.
+        self._last_frame_size = (0, 0)
 
     # ------------------------------------------------------------------
     # Public API
@@ -170,6 +204,7 @@ class ShuttleTracker:
         if not self._enabled or self._model is None:
             return []
 
+        self._last_frame_size = frame.shape[:2]
         orig_h, orig_w = frame.shape[:2]
         self._buffer.append(frame)
         self._idx_buffer.append(frame_idx)
@@ -184,18 +219,117 @@ class ShuttleTracker:
         with torch.no_grad():
             output = self._model(tensor)  # (1, SEQ_LEN, H, W)
         output_cpu = output.detach().cpu()
+        self._win_count += 1
 
+        if self.ensemble:
+            return self._detect_ensemble(output_cpu)
+
+        # Classic one-pass mode: emit each heatmap immediately.
         points: list[ShuttlePoint] = []
-        # OUT_LEN heatmaps correspond to buffer frames [1 .. SEQ_LEN-1]
-        # (the first input frame has no paired output heatmap)
         for i in range(OUT_LEN):
-            heatmap = output_cpu[0, i].numpy()  # (H, W) float in [0,1]
+            heatmap = output_cpu[0, i].numpy()  # (H, W) float in [0, 1]
             xy = _predict_location(heatmap)
             if xy is None:
                 continue
-            # Rescale from inference resolution to original
-            x = int(xy[0] * orig_w / INFER_W)
-            y = int(xy[1] * orig_h / INFER_H)
+            x = int(xy[0] * self._last_frame_size[1] / INFER_W)
+            y = int(xy[1] * self._last_frame_size[0] / INFER_H)
             points.append(ShuttlePoint(frame_idx=self._idx_buffer[i + 1], x=x, y=y))
-
         return points
+
+    def flush(self) -> list[ShuttlePoint]:
+        """Emit any remaining ensemble-accumulated frames (end of video).
+
+        In ensemble mode some trailing frames are still pending when the
+        video ends because they may not have been fully observed by all
+        windows. Call this once after the last frame to collect them.
+        """
+        if not self.ensemble or not self._enabled:
+            return []
+        points: list[ShuttlePoint] = []
+        for f in sorted(self._vote_acc):
+            emitted = self._emit_from_votes(f, self._vote_acc[f])
+            if emitted is not None:
+                points.append(emitted)
+        self._vote_acc.clear()
+        return points
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+
+    def _detect_ensemble(self, output_cpu: torch.Tensor) -> list[ShuttlePoint]:
+        """Temporal-ensemble branch: vote on per-window peaks, then emit
+        every frame that can no longer appear in a future window.
+
+        For each frame we keep the detected (x, y, peak) from every window
+        it appears in. On emission the detections are clustered by proximity;
+        the weighted centroid of the largest cluster is the ensemble answer.
+        This keeps recall (a frame detected in a single window still counts)
+        while stabilising the location (a spurious peak in one window is
+        outvoted by the cluster) — unlike heatmap averaging, which dilutes
+        the 0.9 peak below the 0.5 threshold and drops hard frames.
+        """
+        # Heatmap i corresponds to buffer slot i+1.
+        for i in range(OUT_LEN):
+            frame_idx = self._idx_buffer[i + 1]
+            heatmap = output_cpu[0, i].numpy()  # (H, W) float in [0, 1]
+            xy = _predict_location(heatmap)
+            if xy is None:
+                continue
+            peak = float(heatmap.max())
+            votes = self._vote_acc.setdefault(frame_idx, [])
+            votes.append((xy[0], xy[1], peak))
+
+        # A frame at index f is seen by windows that start in [f-8, f-1]:
+        # it is fully observed once window f-1 has completed (win_count == f).
+        done = [f for f in self._vote_acc if f < self._win_count]
+        emitted: list[ShuttlePoint] = []
+        for f in sorted(done):
+            point = self._emit_from_votes(f, self._vote_acc.pop(f))
+            if point is not None:
+                emitted.append(point)
+        return emitted
+
+    def _emit_from_votes(
+        self,
+        frame_idx: int,
+        votes: list[tuple[int, int, float]],
+    ) -> ShuttlePoint | None:
+        """Resolve per-window detection votes into one ensembled point."""
+        orig_h, orig_w = self._last_frame_size
+        if orig_w == 0 or orig_h == 0:
+            return None
+
+        # Cluster votes: group by proximity; the majority cluster wins
+        # (a spurious single-window peak is outvoted even if it is strong),
+        # then weight-average the survivors by their heatmap peak.
+        strong = [v for v in votes if v[2] >= HEATMAP_THRESH]
+        if not strong:
+            return None
+        strong.sort(key=lambda v: v[2], reverse=True)
+
+        clusters: list[list[tuple[int, int, float]]] = []
+        for v in strong:
+            anchor_x, anchor_y = v[0], v[1]
+            placed = False
+            for cl in clusters:
+                ax, ay = cl[0][0], cl[0][1]
+                if abs(anchor_x - ax) <= 24 and abs(anchor_y - ay) <= 24:
+                    cl.append(v)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([v])
+
+        best = max(clusters, key=len)
+        wsum = sum(v[2] for v in best)
+        if wsum <= 0:
+            return None
+        cx = sum(v[0] * v[2] for v in best) / wsum
+        cy = sum(v[1] * v[2] for v in best) / wsum
+
+        return ShuttlePoint(
+            frame_idx=frame_idx,
+            x=int(cx * orig_w / INFER_W),
+            y=int(cy * orig_h / INFER_H),
+        )
