@@ -494,6 +494,20 @@ Coding conventions, mypy overrides, and notes on adding new layers are documente
 
 ---
 
+## Agent skill (for Claude Code / Hermes / Cursor)
+
+An [Agent Skill](https://github.com/anthropics/claude-cookbook/blob/main/misc/agent-skills/README.md)
+for working on this codebase is bundled at
+[`.claude/skills/badminton-rallylens/SKILL.md`](.claude/skills/badminton-rallylens/SKILL.md) —
+architecture, CLI, convention, debugging playbook, and regression checks.
+Claude Code picks it up automatically from `.claude/skills/`. For other
+agents it can be installed from any location:
+
+```bash
+claude skill add .claude/skills/badminton-rallylens     # Claude Code
+# Hermes: copy the SKILL.md into your agent skills directory
+```
+
 ## License
 
 **MIT** (see [LICENSE](LICENSE)). 
