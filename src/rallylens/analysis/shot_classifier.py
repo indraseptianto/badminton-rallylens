@@ -33,6 +33,12 @@ DROP_MAX_SPEED = 22.0    # drop: slow, falling short
 CLEAR_MIN_SPEED = 20.0   # clear/lob: fast + rising
 NET_MAX_SPEED = 14.0     # net: very slow, close to the net
 
+# The speed thresholds above are px/frame at this reference setup. Measured
+# speeds are rescaled to it, so the same physical shot gets the same label on
+# 1080p or 60 fps footage.
+REF_WIDTH_PX = 1280.0
+REF_FPS = 30.0
+
 # Fraction of frame height marking "high contact" (net/overhead zone).
 HIGH_CONTACT_RATIO = 0.35
 
@@ -52,12 +58,18 @@ class ShotEvent(BaseModel):
     y: int
 
 
-def _speed_between(
-    a: ShuttlePoint,
-    b: ShuttlePoint,
-    fps: float = 30.0,
-) -> float:
-    """Pixel-per-frame speed between two track points (1 / dt)."""
+def _normalization_factor(video_size: tuple[int, int], fps: float) -> float:
+    """Factor mapping raw px/frame to the 1280-wide, 30 fps reference setup.
+
+    A shot covers more pixels per frame at higher resolution and fewer at higher
+    frame rates; scaling by ``(REF_WIDTH / width) * (fps / REF_FPS)`` removes both.
+    """
+    width = max(float(video_size[0]), 1.0)
+    return (REF_WIDTH_PX / width) * (max(fps, 1e-6) / REF_FPS)
+
+
+def _speed_between(a: ShuttlePoint, b: ShuttlePoint) -> float:
+    """Raw pixel-per-frame speed between two track points."""
     dt = b.frame_idx - a.frame_idx
     if dt <= 0:
         return 0.0
@@ -117,8 +129,8 @@ def classify_hit(
     # Speed approaching and leaving the hit point.
     b1, b2 = before[-2], before[-1]
     a1, a2 = after[0], after[1]
-    speed_before = _speed_between(b1, b2, fps)
-    speed_after = _speed_between(a1, a2, fps)
+    speed_before = _speed_between(b1, b2)
+    speed_after = _speed_between(a1, a2)
     speed = max(speed_before, speed_after)
 
     # Vertical velocity right after the hit (positive = downward in image
@@ -133,21 +145,27 @@ def classify_hit(
     hit_ratio = y / vh if vh else 0.0
     high_contact = hit_ratio < HIGH_CONTACT_RATIO  # near top of frame
 
+    # Rules are tuned at the reference setup: evaluate on rescaled values, but
+    # keep the raw measurements in the persisted ShotEvent.
+    norm = _normalization_factor(video_size, fps)
+    speed_n = speed * norm
+    vy_n = vy_after * norm
+
     player = _find_player_near(detections, frame_idx, event.x, event.y)
     player_id = player[0] if player else None
 
     # --- Rule bank (ordered: most specific first) ---
-    if speed <= NET_MAX_SPEED and high_contact:
+    if speed_n <= NET_MAX_SPEED and high_contact:
         shot = ("net", 0.62)
-    elif speed >= SMASH_MIN_SPEED and not high_contact and vy_after > 2.0:
+    elif speed_n >= SMASH_MIN_SPEED and not high_contact and vy_n > 2.0:
         shot = ("smash", 0.85)
-    elif speed >= SMASH_MIN_SPEED and vy_after > 0.0:
+    elif speed_n >= SMASH_MIN_SPEED and vy_n > 0.0:
         shot = ("smash", 0.70)
-    elif speed >= DRIVE_MIN_SPEED and abs(vy_after) <= 3.0:
+    elif speed_n >= DRIVE_MIN_SPEED and abs(vy_n) <= 3.0:
         shot = ("drive", 0.75)
-    elif speed >= CLEAR_MIN_SPEED and vy_after < -2.0:
+    elif speed_n >= CLEAR_MIN_SPEED and vy_n < -2.0:
         shot = ("clear", 0.75)
-    elif speed <= DROP_MAX_SPEED:
+    elif speed_n <= DROP_MAX_SPEED:
         shot = ("drop", 0.60)
     else:
         shot = ("unknown", 0.40)
