@@ -19,10 +19,10 @@ from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import HitEvent, ShuttlePoint
 
-COURT_W: int = 610   # 6.10 m — doubles width
+COURT_W: int = 610  # 6.10 m — doubles width
 COURT_H: int = 1340  # 13.40 m — court length
-MARGIN: int = 60     # blank border around the court lines
-NET_Y: int = 670     # net offset from the top of the court
+MARGIN: int = 60  # blank border around the court lines
+NET_Y: int = 670  # net offset from the top of the court
 
 # Consecutive candidate hit frames within this gap are collapsed into a single event
 _HIT_GROUPING_MAX_GAP_FRAMES: Final[int] = 2

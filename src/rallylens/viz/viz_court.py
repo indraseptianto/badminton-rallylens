@@ -96,9 +96,7 @@ def render_viz_court(
     for rank, tid in enumerate(observed_ids[:_MAX_DISPLAY_PLAYERS]):
         id_to_label[tid] = f"P{rank + 1}"
 
-    player_trails: dict[int, deque[tuple[int, int]]] = defaultdict(
-        lambda: deque(maxlen=trail_len)
-    )
+    player_trails: dict[int, deque[tuple[int, int]]] = defaultdict(lambda: deque(maxlen=trail_len))
     shuttle_trail: deque[tuple[int, int]] = deque(maxlen=trail_len)
 
     out_w = max(1, int(IMG_W * scale))
@@ -156,9 +154,7 @@ def render_viz_court(
                             cv2.LINE_AA,
                         )
 
-            draw_fading_trail(
-                frame, shuttle_trail, color=SHUTTLE_COLOR, head_radius=shuttle_radius
-            )
+            draw_fading_trail(frame, shuttle_trail, color=SHUTTLE_COLOR, head_radius=shuttle_radius)
             if shuttle_trail:
                 sx, sy = shuttle_trail[-1]
                 cv2.circle(frame, (sx, sy), shuttle_radius, SHUTTLE_COLOR, -1, cv2.LINE_AA)

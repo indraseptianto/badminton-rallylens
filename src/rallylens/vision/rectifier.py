@@ -68,9 +68,8 @@ def load_inpaintnet_weights(
 
     remapped: dict[str, torch.Tensor] = {}
     for key, value in raw.items():
-        new_key = (
-            key.replace("buttleneck.conv_1", "bottleneck.block.0")
-            .replace("buttleneck.conv_2", "bottleneck.block.1")
+        new_key = key.replace("buttleneck.conv_1", "bottleneck.block.0").replace(
+            "buttleneck.conv_2", "bottleneck.block.1"
         )
         remapped[new_key] = value
     return remapped
@@ -201,7 +200,9 @@ class TrajectoryRefiner:
             row = dense[offset]
             if np.isnan(row).any():
                 continue
-            out.append(ShuttlePoint(frame_idx=min_f + offset, x=int(round(row[0])), y=int(round(row[1]))))
+            out.append(
+                ShuttlePoint(frame_idx=min_f + offset, x=int(round(row[0])), y=int(round(row[1])))
+            )
         return out
 
     # ------------------------------------------------------------------
@@ -336,10 +337,12 @@ class TrajectoryRefiner:
                 continue
 
             coords = norm[start:end].copy()  # (L, 2) observed coords
-            coords[win_missing] = 0.0        # (L, 2) zero-mask, like training
+            coords[win_missing] = 0.0  # (L, 2) zero-mask, like training
             mask = win_missing.astype(np.float32).reshape(-1, 1)  # (L, 1)
-            x_t = torch.from_numpy(coords.astype(np.float32)).unsqueeze(0).to(self._device)  # (1, L, 2)
-            m_t = torch.from_numpy(mask).unsqueeze(0).to(self._device)    # (1, L, 1)
+            x_t = (
+                torch.from_numpy(coords.astype(np.float32)).unsqueeze(0).to(self._device)
+            )  # (1, L, 2)
+            m_t = torch.from_numpy(mask).unsqueeze(0).to(self._device)  # (1, L, 1)
 
             with torch.no_grad():
                 out = self._model(x_t, m_t)  # (1, L, 2) in [0, 1]

@@ -40,11 +40,21 @@ def _track(
     hx, hy = hit_xy
     pts = []
     for k in range(n, 0, -1):
-        pts.append(ShuttlePoint(frame_idx=HIT - k * step, x=int(hx - v_before[0] * k * step),
-                                y=int(hy - v_before[1] * k * step)))
+        pts.append(
+            ShuttlePoint(
+                frame_idx=HIT - k * step,
+                x=int(hx - v_before[0] * k * step),
+                y=int(hy - v_before[1] * k * step),
+            )
+        )
     for k in range(1, n + 1):
-        pts.append(ShuttlePoint(frame_idx=HIT + k * step, x=int(hx + v_after[0] * k * step),
-                                y=int(hy + v_after[1] * k * step)))
+        pts.append(
+            ShuttlePoint(
+                frame_idx=HIT + k * step,
+                x=int(hx + v_after[0] * k * step),
+                y=int(hy + v_after[1] * k * step),
+            )
+        )
     return pts
 
 

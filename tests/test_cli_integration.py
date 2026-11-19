@@ -73,7 +73,9 @@ def test_run_cmd_local_file_happy_path(
     )
     monkeypatch.setattr(
         "rallylens.pipeline.orchestrator.save_player_detections",
-        lambda *_args, **_kwargs: isolated_data / "detections" / video_id / f"{video_id}_players.jsonl",
+        lambda *_args, **_kwargs: (
+            isolated_data / "detections" / video_id / f"{video_id}_players.jsonl"
+        ),
     )
     # This test exercises local-path dispatch, not the downstream CV stages.
     # Keep the touched placeholder file away from OpenCV/TrackNet.

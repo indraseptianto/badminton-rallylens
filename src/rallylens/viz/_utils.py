@@ -35,32 +35,32 @@ _TRAIL_RADIUS_MIN_PX: Final[int] = 2
 # ---------------------------------------------------------------------------
 
 
-IMG_W: int = COURT_W + 2 * MARGIN   # 730
-IMG_H: int = COURT_H + 2 * MARGIN   # 1460
+IMG_W: int = COURT_W + 2 * MARGIN  # 730
+IMG_H: int = COURT_H + 2 * MARGIN  # 1460
 
 # Y-offsets from the top of the court (cm / px)
 _NET_Y: int = NET_Y
-_SHORT_SVC_FAR: int = _NET_Y - 198   # 472
+_SHORT_SVC_FAR: int = _NET_Y - 198  # 472
 _SHORT_SVC_NEAR: int = _NET_Y + 198  # 868
 _DBL_LONG_FAR: int = 76
-_DBL_LONG_NEAR: int = COURT_H - 76   # 1264
+_DBL_LONG_NEAR: int = COURT_H - 76  # 1264
 
 # X-offsets
 _SINGLES_LEFT: int = 46
-_SINGLES_RIGHT: int = COURT_W - 46   # 564
-_CENTER_X: int = COURT_W // 2        # 305
+_SINGLES_RIGHT: int = COURT_W - 46  # 564
+_CENTER_X: int = COURT_W // 2  # 305
 
 # ---------------------------------------------------------------------------
 # Track-color palette (BGR)
 # ---------------------------------------------------------------------------
 
 TRACK_COLORS: list[tuple[int, int, int]] = [
-    (0, 255, 0),      # green
-    (0, 128, 255),    # sky-blue / orange
-    (255, 128, 0),    # orange-blue
-    (255, 0, 255),    # magenta
-    (0, 255, 255),    # cyan
-    (255, 255, 0),    # yellow
+    (0, 255, 0),  # green
+    (0, 128, 255),  # sky-blue / orange
+    (255, 128, 0),  # orange-blue
+    (255, 0, 255),  # magenta
+    (0, 255, 255),  # cyan
+    (255, 255, 0),  # yellow
 ]
 
 # Shared shuttle highlight color (BGR: yellow)
@@ -196,8 +196,7 @@ def build_heatmap_over_court(
     heatmap_rgb = cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
     alpha_map = (grid / max_val * alpha_max).astype(np.float32)[:, :, np.newaxis]
     blended = (
-        court.astype(np.float32) * (1 - alpha_map)
-        + heatmap_rgb.astype(np.float32) * alpha_map
+        court.astype(np.float32) * (1 - alpha_map) + heatmap_rgb.astype(np.float32) * alpha_map
     ).astype(np.uint8)
     return blended
 

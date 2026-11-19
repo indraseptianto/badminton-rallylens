@@ -189,8 +189,14 @@ def test_drop_slow_falling():
 
 def test_classify_shots_filters_non_hit():
     landing = ShuttleEvent(
-        frame_idx=200, x=100, y=500, event_type="landing", rule="speed_drop",
-        confidence=0.8, all_rules=[], features={},
+        frame_idx=200,
+        x=100,
+        y=500,
+        event_type="landing",
+        rule="speed_drop",
+        confidence=0.8,
+        all_rules=[],
+        features={},
     )
     shots = classify_shots([landing], _track_around(200, 20, 2), [_player(200)])
     assert shots == []
@@ -198,8 +204,14 @@ def test_classify_shots_filters_non_hit():
 
 def test_shot_event_model_roundtrip():
     shot = ShotEvent(
-        frame_idx=10, player_track_id=2, shot_type="smash", confidence=0.85,
-        speed_px=35.0, vy_after=3.0, x=100, y=200,
+        frame_idx=10,
+        player_track_id=2,
+        shot_type="smash",
+        confidence=0.85,
+        speed_px=35.0,
+        vy_after=3.0,
+        x=100,
+        y=200,
     )
     data = shot.model_dump()
     assert data["shot_type"] == "smash"

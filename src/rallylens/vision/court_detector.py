@@ -174,10 +174,10 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
         return None
 
     # Reference border axes (extended beyond frame)
-    axis_top: _Line    = [[-extra, 0], [width + extra, 0]]
-    axis_right: _Line  = [[width + extra, 0], [width + extra, height]]
+    axis_top: _Line = [[-extra, 0], [width + extra, 0]]
+    axis_right: _Line = [[width + extra, 0], [width + extra, height]]
     axis_bottom: _Line = [[-extra, height], [width + extra, height]]
-    axis_left: _Line   = [[-extra, 0], [-extra, height]]
+    axis_left: _Line = [[-extra, 0], [-extra, height]]
 
     xo_left = width + extra
     xo_right = -extra
@@ -228,8 +228,16 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
             if pt_yf[1] > yf_bottom:
                 yf_bottom, yf_bottom_line = pt_yf[1], seg
 
-    required = [xo_left_line, xo_right_line, yo_top_line, yo_bottom_line,
-                xf_left_line, xf_right_line, yf_top_line, yf_bottom_line]
+    required = [
+        xo_left_line,
+        xo_right_line,
+        yo_top_line,
+        yo_bottom_line,
+        xf_left_line,
+        xf_right_line,
+        yf_top_line,
+        yf_bottom_line,
+    ]
     if any(seg_line is None for seg_line in required):
         return None
 
@@ -248,9 +256,9 @@ def detect_court_corners(frame: np.ndarray) -> CourtCorners | None:
         seg[1][1] += _TOP_LINE_VERTICAL_CORRECTION
 
     # ── Stage 5: compute four corners ────────────────────────────────────────
-    tl = _find_intersection(xo_left_line,  yo_top_line,    *bounds)
-    tr = _find_intersection(xo_right_line, yf_top_line,    *bounds)
-    bl = _find_intersection(xf_left_line,  yo_bottom_line, *bounds)
+    tl = _find_intersection(xo_left_line, yo_top_line, *bounds)
+    tr = _find_intersection(xo_right_line, yf_top_line, *bounds)
+    bl = _find_intersection(xf_left_line, yo_bottom_line, *bounds)
     br = _find_intersection(xf_right_line, yf_bottom_line, *bounds)
 
     if None in (tl, tr, bl, br):

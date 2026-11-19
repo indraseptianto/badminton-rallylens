@@ -27,11 +27,11 @@ from rallylens.vision.shuttle_tracker import ShuttlePoint
 # Pixels/frame thresholds tuned on 720p 30fps broadcast footage.
 # Convert to the inference space speed the detector already works in:
 # events live in original-video pixels, so these are raw-pixel speeds.
-SMASH_MIN_SPEED = 30.0   # smash: fastest swing
-DRIVE_MIN_SPEED = 18.0   # drive: fast, flat
-DROP_MAX_SPEED = 22.0    # drop: slow, falling short
-CLEAR_MIN_SPEED = 20.0   # clear/lob: fast + rising
-NET_MAX_SPEED = 14.0     # net: very slow, close to the net
+SMASH_MIN_SPEED = 30.0  # smash: fastest swing
+DRIVE_MIN_SPEED = 18.0  # drive: fast, flat
+DROP_MAX_SPEED = 22.0  # drop: slow, falling short
+CLEAR_MIN_SPEED = 20.0  # clear/lob: fast + rising
+NET_MAX_SPEED = 14.0  # net: very slow, close to the net
 
 # The speed thresholds above are px/frame at this reference setup. Measured
 # speeds are rescaled to it, so the same physical shot gets the same label on
@@ -140,7 +140,10 @@ def classify_hit(
     # Hit height: use the event y if we have it, else the first after-point.
     y = event.y
     if video_size is None:
-        video_size = (int(np.nanmax([p.x for p in track]) + 1), int(np.nanmax([p.y for p in track]) + 1))
+        video_size = (
+            int(np.nanmax([p.x for p in track]) + 1),
+            int(np.nanmax([p.y for p in track]) + 1),
+        )
     vh = float(video_size[1])
     hit_ratio = y / vh if vh else 0.0
     high_contact = hit_ratio < HIGH_CONTACT_RATIO  # near top of frame

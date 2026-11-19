@@ -76,14 +76,11 @@ def run_report_pipeline(
         corners = load_court_corners(video_id)
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            f"court corners missing for {video_id!r} — "
-            f"run `rallylens calibrate {video_path}` first"
+            f"court corners missing for {video_id!r} — run `rallylens calibrate {video_path}` first"
         ) from exc
 
     props = read_video_properties(video_path)
-    metrics = compute_match_metrics(
-        detections, shuttle_track, corners, props, video_id
-    )
+    metrics = compute_match_metrics(detections, shuttle_track, corners, props, video_id)
     m_path = save_match_metrics(metrics, video_id)
     _log.info("wrote metrics: %s", m_path)
 
@@ -92,9 +89,7 @@ def run_report_pipeline(
         gif_path = _ensure_artifact(
             "court diagram",
             viz_court_path(video_id),
-            lambda path: render_viz_court(
-                detections, shuttle_track, corners, path, fps=props.fps
-            ),
+            lambda path: render_viz_court(detections, shuttle_track, corners, path, fps=props.fps),
         )
 
     if metrics_only:

@@ -39,13 +39,22 @@ _LABEL_TEXT_THICKNESS: Final[int] = 1
 
 # COCO-17 skeleton connections (0-indexed keypoint pairs)
 _COCO_SKELETON: list[tuple[int, int]] = [
-    (0, 1), (0, 2), (1, 3), (2, 4),        # face
-    (5, 7), (7, 9),                          # left arm
-    (6, 8), (8, 10),                         # right arm
-    (5, 6),                                  # shoulders
-    (5, 11), (6, 12), (11, 12),             # torso
-    (11, 13), (13, 15),                      # left leg
-    (12, 14), (14, 16),                      # right leg
+    (0, 1),
+    (0, 2),
+    (1, 3),
+    (2, 4),  # face
+    (5, 7),
+    (7, 9),  # left arm
+    (6, 8),
+    (8, 10),  # right arm
+    (5, 6),  # shoulders
+    (5, 11),
+    (6, 12),
+    (11, 12),  # torso
+    (11, 13),
+    (13, 15),  # left leg
+    (12, 14),
+    (14, 16),  # right leg
 ]
 
 __all__ = ["render_overlay_video"]
@@ -62,9 +71,14 @@ def _draw_bbox(frame: np.ndarray, det: Detection, thickness: int) -> None:
     lbl_y = max(y1, th + 4)
     cv2.rectangle(frame, (x1, lbl_y - th - 4), (x1 + tw + 4, lbl_y), color, -1)
     cv2.putText(
-        frame, label, (x1 + 2, lbl_y - 2),
-        cv2.FONT_HERSHEY_SIMPLEX, _LABEL_FONT_SCALE, (0, 0, 0),
-        _LABEL_TEXT_THICKNESS, cv2.LINE_AA,
+        frame,
+        label,
+        (x1 + 2, lbl_y - 2),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        _LABEL_FONT_SCALE,
+        (0, 0, 0),
+        _LABEL_TEXT_THICKNESS,
+        cv2.LINE_AA,
     )
 
 
@@ -93,7 +107,8 @@ def _draw_skeleton(
 
 
 def _draw_shuttle_trail(
-    frame: np.ndarray, trail: collections.deque  # type: ignore[type-arg]
+    frame: np.ndarray,
+    trail: collections.deque,  # type: ignore[type-arg]
 ) -> None:
     draw_fading_trail(
         frame,
@@ -177,21 +192,15 @@ def render_overlay_video(
                     if pt is None:
                         continue
                     if det.track_id not in pip_player_trails:
-                        pip_player_trails[det.track_id] = collections.deque(
-                            maxlen=trail_len
-                        )
+                        pip_player_trails[det.track_id] = collections.deque(maxlen=trail_len)
                     pip_player_trails[det.track_id].append(pt)
 
                 spos = shuttle_court.get(frame_idx)
                 if spos is not None:
                     pip_shuttle_trail.append(spos)
 
-                pip_frame = render_pip_court_frame(
-                    court_bg, pip_player_trails, pip_shuttle_trail
-                )
-                pip_resized = cv2.resize(
-                    pip_frame, (pip_w, pip_h), interpolation=cv2.INTER_AREA
-                )
+                pip_frame = render_pip_court_frame(court_bg, pip_player_trails, pip_shuttle_trail)
+                pip_resized = cv2.resize(pip_frame, (pip_w, pip_h), interpolation=cv2.INTER_AREA)
 
                 cv2.rectangle(
                     frame,

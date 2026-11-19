@@ -87,9 +87,9 @@ def test_generator_merges_nearby():
 
 def test_empty_inputs():
     assert BounceDetector().detect(np.array([]), np.array([]), np.array([])) == []
-    assert BounceDetector().detect_from_shuttle_points(
-        np.array([]), np.array([]), np.array([])
-    ) == []
+    assert (
+        BounceDetector().detect_from_shuttle_points(np.array([]), np.array([]), np.array([])) == []
+    )
 
 
 def test_fps_must_be_positive():

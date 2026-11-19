@@ -7,10 +7,7 @@ from rallylens.domain.video import is_likely_youtube_url, video_id_from_url
 
 
 def test_video_id_from_url_watch():
-    assert (
-        video_id_from_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s")
-        == "dQw4w9WgXcQ"
-    )
+    assert video_id_from_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s") == "dQw4w9WgXcQ"
 
 
 def test_video_id_from_url_short():
@@ -18,10 +15,7 @@ def test_video_id_from_url_short():
 
 
 def test_video_id_from_url_shorts():
-    assert (
-        video_id_from_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
-        == "dQw4w9WgXcQ"
-    )
+    assert video_id_from_url("https://www.youtube.com/shorts/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
 
 def test_video_id_from_url_fallback_is_deterministic():

@@ -17,9 +17,7 @@ from rallylens.serialization import load_json, save_json
 _log = get_logger(__name__)
 
 _FORMAT_SELECTOR = (
-    "bv*[height<=1080][fps<=60][ext=mp4]+ba[ext=m4a]/"
-    "b[height<=1080][ext=mp4]/"
-    "b[height<=1080]"
+    "bv*[height<=1080][fps<=60][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b[height<=1080]"
 )
 
 
@@ -145,12 +143,11 @@ def download_video(
 
     video_path = _video_path(out_dir, clip_id)
     if not video_path.exists():
-        raise RuntimeError(
-            f"expected {video_path} to exist after download — no compatible format?"
-        )
+        raise RuntimeError(f"expected {video_path} to exist after download — no compatible format?")
 
     clip_duration = (
-        (clip_end - clip_start) if clip_end is not None
+        (clip_end - clip_start)
+        if clip_end is not None
         else float(info.get("duration") or 0.0) - clip_start
     )
     meta = VideoMeta(

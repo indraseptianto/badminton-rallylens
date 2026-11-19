@@ -121,7 +121,9 @@ def detect_cmd(video_path: Path, tracker: str, singles: bool, imgsz: int) -> Non
     default=False,
     help="Disable temporal ensemble (classic one-pass TrackNet windows).",
 )
-def detect_shuttle_cmd(video_path: Path, weights: Path | None, no_rectify: bool, no_ensemble: bool) -> None:
+def detect_shuttle_cmd(
+    video_path: Path, weights: Path | None, no_rectify: bool, no_ensemble: bool
+) -> None:
     """Run TrackNetV3 shuttlecock detection on a video file."""
     track = run_shuttle_pipeline(
         video_path,
@@ -296,11 +298,32 @@ def report_cmd(
 
 @cli.command("viz")
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--overlay/--no-overlay", default=True, show_default=True, help="Render video overlay MP4.")
-@click.option("--court/--no-court", default=True, show_default=True, help="Render court trajectory diagram GIF.")
-@click.option("--trail-len", type=int, default=30, show_default=True, help="Shuttle trail length in frames.")
-@click.option("--court-stride", type=int, default=5, show_default=True, help="Emit every Nth source frame to the court GIF.")
-@click.option("--court-scale", type=float, default=0.5, show_default=True, help="Downscale factor for the court GIF.")
+@click.option(
+    "--overlay/--no-overlay", default=True, show_default=True, help="Render video overlay MP4."
+)
+@click.option(
+    "--court/--no-court",
+    default=True,
+    show_default=True,
+    help="Render court trajectory diagram GIF.",
+)
+@click.option(
+    "--trail-len", type=int, default=30, show_default=True, help="Shuttle trail length in frames."
+)
+@click.option(
+    "--court-stride",
+    type=int,
+    default=5,
+    show_default=True,
+    help="Emit every Nth source frame to the court GIF.",
+)
+@click.option(
+    "--court-scale",
+    type=float,
+    default=0.5,
+    show_default=True,
+    help="Downscale factor for the court GIF.",
+)
 def viz_cmd(
     video_path: Path,
     overlay: bool,

@@ -141,8 +141,7 @@ def detect_and_track_players(
             if tracker_cfg is not None:
                 if not warned_missing_ids:
                     _log.warning(
-                        "tracker=%s requested but boxes.id is None on frame %d — "
-                        "skipping frame",
+                        "tracker=%s requested but boxes.id is None on frame %d — skipping frame",
                         tracker_cfg,
                         frame_idx,
                     )
@@ -161,9 +160,7 @@ def detect_and_track_players(
             if kp_xy is not None:
                 points = [(float(p[0]), float(p[1])) for p in kp_xy[i]]
                 scores = (
-                    [float(s) for s in kp_conf[i]]
-                    if kp_conf is not None
-                    else [1.0] * len(points)
+                    [float(s) for s in kp_conf[i]] if kp_conf is not None else [1.0] * len(points)
                 )
             else:
                 points = []

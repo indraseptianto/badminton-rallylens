@@ -119,9 +119,7 @@ def compute_match_metrics(
         )
 
     H = compute_homography(corners)
-    hits = extract_hit_events(
-        detections, shuttle_track, H, kp_conf_thresh=_KP_CONF_THRESH
-    )
+    hits = extract_hit_events(detections, shuttle_track, H, kp_conf_thresh=_KP_CONF_THRESH)
 
     players = _compute_player_metrics(detections, H, fps, hits)
     shuttle = _compute_shuttle_metrics(hits, fps)
@@ -160,9 +158,7 @@ def _compute_player_metrics(
     shots_by_track: dict[int, int] = {}
     for hit in hits:
         if hit.striker_track_id is not None:
-            shots_by_track[hit.striker_track_id] = (
-                shots_by_track.get(hit.striker_track_id, 0) + 1
-            )
+            shots_by_track[hit.striker_track_id] = shots_by_track.get(hit.striker_track_id, 0) + 1
 
     results: list[PlayerMetrics] = []
     for track_id, dets in sorted(by_track.items()):
@@ -170,9 +166,7 @@ def _compute_player_metrics(
         path = _project_foot_path(dets_sorted, H)
         points = [pt for _, pt in path]
 
-        total_distance_m, avg_speed_mps, max_speed_mps = _compute_distance_speed(
-            path, fps
-        )
+        total_distance_m, avg_speed_mps, max_speed_mps = _compute_distance_speed(path, fps)
         zones = _compute_zone_distribution(points)
 
         results.append(
@@ -261,7 +255,12 @@ def _convex_hull_area_m2(points: list[tuple[int, int]]) -> float:
 
 
 _ZONE_KEYS: Final[tuple[str, ...]] = (
-    "front", "mid", "back", "left", "center", "right",
+    "front",
+    "mid",
+    "back",
+    "left",
+    "center",
+    "right",
 )
 
 
@@ -337,5 +336,3 @@ def _compute_shuttle_metrics(
         avg_shuttle_speed_mps=avg_shuttle_speed_mps,
         max_shuttle_speed_mps=max_shuttle_speed_mps,
     )
-
-
