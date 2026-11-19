@@ -138,12 +138,11 @@ def detect_shuttle_cmd(video_path: Path, weights: Path | None, no_rectify: bool,
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
     "--fps",
-    type=int,
-    default=30,
-    show_default=True,
-    help="Video framerate used by the kinematics calculator.",
+    type=float,
+    default=None,
+    help="Video framerate for the kinematics calculator (default: read from the video).",
 )
-def detect_events_cmd(video_path: Path, fps: int) -> None:
+def detect_events_cmd(video_path: Path, fps: float | None) -> None:
     """Detect rally events (landing / hit / out_of_frame) from a shuttle track."""
     events = run_events_pipeline(video_path, video_path.stem, fps=fps)
     out_path = events_path(video_path.stem)
@@ -158,12 +157,11 @@ def detect_events_cmd(video_path: Path, fps: int) -> None:
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
     "--fps",
-    type=int,
-    default=30,
-    show_default=True,
-    help="Video framerate used by the kinematics calculator.",
+    type=float,
+    default=None,
+    help="Video framerate for the kinematics calculator (default: read from the video).",
 )
-def detect_shots_cmd(video_path: Path, fps: int) -> None:
+def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
     """Classify stroke types (smash / drive / drop / clear / net) from events."""
     shots = run_shots_pipeline(video_path, video_path.stem, fps=fps)
     out_path = shots_path(video_path.stem)

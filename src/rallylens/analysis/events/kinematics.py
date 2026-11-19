@@ -20,7 +20,7 @@ class KinematicsCalculator:
     注意: 输入轨迹应该是 InpaintNet 修复后的，不需要额外平滑处理
     """
 
-    def __init__(self, fps: int = 30):
+    def __init__(self, fps: float = 30.0):
         """
         Args:
             fps: 视频帧率，用于将像素/帧转换为实际速度（可选）

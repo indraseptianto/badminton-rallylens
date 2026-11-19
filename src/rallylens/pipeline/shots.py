@@ -10,8 +10,9 @@ from pathlib import Path
 
 from rallylens.analysis.events.detector import ShuttleEvent
 from rallylens.analysis.shot_classifier import ShotEvent, classify_shots
-from rallylens.common import ensure_dir, get_logger
+from rallylens.common import ensure_dir, get_logger, read_video_properties
 from rallylens.config import SHOTS_DIR
+from rallylens.pipeline.events import resolve_fps
 from rallylens.pipeline.io import save_shots
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
@@ -25,7 +26,7 @@ def run_shots_pipeline(
     track: list[ShuttlePoint] | None = None,
     events: list[ShuttleEvent] | None = None,
     detections: list[Detection] | None = None,
-    fps: int = 30,
+    fps: float | None = None,
 ) -> list[ShotEvent]:
     """Classify stroke types from events + track + detections.
 
@@ -35,7 +36,7 @@ def run_shots_pipeline(
         track:      Shuttle track (list[ShuttlePoint]); loads from disk when None.
         events:     Rally events (list[ShuttleEvent]); loads from disk when None.
         detections: Player detections (list[Detection]); loads from disk when None.
-        fps:        Video framerate.
+        fps:        Video framerate; when None it is read from ``video_path``.
 
     Returns:
         list[ShotEvent] — a classified stroke per hit event, sorted by frame.
@@ -59,13 +60,13 @@ def run_shots_pipeline(
         out = save_shots([], video_id)
         return []
 
-    import cv2
-
-    cap = cv2.VideoCapture(str(video_path))
-    video_size = None
-    if cap.isOpened():
-        video_size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-    cap.release()
+    video_size: tuple[int, int] | None = None
+    try:
+        props = read_video_properties(video_path)
+        video_size = (props.width, props.height)
+    except (FileNotFoundError, RuntimeError):
+        _log.warning("could not read video size from %s — inferring from track", video_path)
+    fps = resolve_fps(video_path, fps)
 
     shots = classify_shots(events, track, detections, fps=fps, video_size=video_size)
     ensure_dir(SHOTS_DIR / video_id)
