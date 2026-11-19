@@ -15,18 +15,20 @@ import numpy as np
 
 from rallylens.common import open_video, open_video_writer, read_video_properties
 from rallylens.vision.court_detector import CourtCorners
+from rallylens.vision.court_geometry import (
+    compute_homography,
+    foot_point_from_detection,
+    group_detections_by_frame,
+)
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
     IMG_H,
     IMG_W,
     SHUTTLE_COLOR,
-    compute_homography,
     compute_shuttle_court_positions,
     draw_court_background,
     draw_fading_trail,
-    foot_point_from_detection,
-    group_detections_by_frame,
     render_pip_court_frame,
     track_color,
 )

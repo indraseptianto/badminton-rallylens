@@ -17,6 +17,12 @@ import numpy as np
 
 from rallylens.common import ensure_dir
 from rallylens.vision.court_detector import CourtCorners
+from rallylens.vision.court_geometry import (
+    compute_homography,
+    extract_foot_positions,
+    foot_point_from_detection,
+    group_detections_by_frame,
+)
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
@@ -24,13 +30,9 @@ from rallylens.viz._utils import (
     IMG_W,
     SHUTTLE_COLOR,
     build_heatmap_over_court,
-    compute_homography,
     compute_shuttle_court_positions,
     draw_court_background,
     draw_fading_trail,
-    extract_foot_positions,
-    foot_point_from_detection,
-    group_detections_by_frame,
     track_color,
 )
 

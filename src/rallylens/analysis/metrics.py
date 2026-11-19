@@ -22,22 +22,20 @@ from pydantic import BaseModel, ConfigDict
 
 from rallylens.domain.video import VideoProperties
 from rallylens.vision.court_detector import CourtCorners
-from rallylens.vision.detect_track import Detection
-from rallylens.vision.shuttle_tracker import HitEvent, ShuttlePoint
-from rallylens.viz._utils import (
+from rallylens.vision.court_geometry import (
     COURT_H,
     COURT_W,
     MARGIN,
+    NET_Y,
     compute_homography,
     extract_hit_events,
     foot_pixel_from_detection,
     project_point,
 )
+from rallylens.vision.detect_track import Detection
+from rallylens.vision.shuttle_tracker import HitEvent, ShuttlePoint
 
-# Court image coordinates. Duplicated from viz._utils._NET_Y pending the
-# court-geometry promotion called out in viz/_utils.py:8.
-_NET_Y_OFFSET: Final[int] = 670  # from top of court (cm, 1 px = 1 cm)
-_NET_Y_IMG: Final[int] = MARGIN + _NET_Y_OFFSET
+_NET_Y_IMG: Final[int] = MARGIN + NET_Y
 _COURT_LEFT_X: Final[int] = MARGIN
 _COURT_RIGHT_X: Final[int] = MARGIN + COURT_W
 _COURT_TOP_Y: Final[int] = MARGIN

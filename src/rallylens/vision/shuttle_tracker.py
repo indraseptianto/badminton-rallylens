@@ -86,7 +86,7 @@ class ShuttlePoint(BaseModel):
 class HitEvent(BaseModel):
     """Shuttle-to-racket contact detected via wrist-proximity heuristic.
 
-    See rallylens.viz._utils.extract_hit_events for the detection algorithm.
+    See rallylens.vision.court_geometry.extract_hit_events for the detection algorithm.
     """
 
     model_config = ConfigDict(frozen=True)

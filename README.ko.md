@@ -384,7 +384,7 @@ cli → pipeline → { vision, analysis, llm, viz, ingest }
 - `pipeline.io` 는 `(video_id) → Path` 매핑과 `save_*` / `load_*` 헬퍼가 모여 있는 **단일 소스**. 새 아티팩트 종류를 추가할 때 경로·save·load 를 여기에만 추가하면 됩니다.
 - `vision` 만 `ultralytics`/`cv2` 를 직접 import 합니다. 모델 텐들러 코드가 이 레이어 밖으로 새지 않아 `pyproject.toml` 의 mypy override 도 한 곳에만 필요합니다.
 - `llm` 만 `google.genai` 를 직접 import 합니다. `google-genai` 는 optional 의존성이므로 `detect`·`viz` 만 쓰는 사용자는 설치 부담이 없습니다. `cli.py` 는 `from rallylens.pipeline import run_report_pipeline` 을 **lazy import** 로 처리해 `report` 명령을 실행할 때만 SDK 가 로드됩니다.
-- `analysis` 는 `viz._utils` 의 court-geometry 유틸(`compute_homography`, `project_point`, `extract_hit_events`)을 import 합니다. 이는 peer-layer 직접 의존으로 엄밀히는 역전이며, `viz/_utils.py:8` TODO 에 court-geometry 를 `vision` 아래로 승격하는 계획이 명시돼 있습니다.
+- court-geometry 유틸(`compute_homography`, `project_point`, `extract_hit_events`)은 `vision/court_geometry.py` 에 있어 `analysis` 와 `viz` 는 서로가 아니라 `vision` 에만 의존합니다. `tests/test_architecture.py` 가 이를 강제합니다.
 
 ### `rallylens report` 데이터 흐름
 

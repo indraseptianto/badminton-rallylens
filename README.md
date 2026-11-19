@@ -423,7 +423,7 @@ cli → pipeline → { vision, analysis, llm, viz, ingest }
 - `pipeline.io` is the **single source** for the `(video_id) → Path` mapping and the `save_*` / `load_*` helpers. Adding a new artifact kind means adding its path, save, and load here — and nowhere else.
 - Only `vision` imports `ultralytics`/`cv2` directly. Model handler code never leaks outside this layer, so the mypy override in `pyproject.toml` is also only needed in one place.
 - Only `llm` imports `google.genai` directly. `google-genai` is an optional dependency, so users who only need `detect`/`viz` carry no install burden. `cli.py` treats `from rallylens.pipeline import run_report_pipeline` as a **lazy import**, so the SDK only loads when the `report` command actually runs.
-- `analysis` imports the court-geometry utilities from `viz._utils` (`compute_homography`, `project_point`, `extract_hit_events`). This is a direct peer-layer dependency and, strictly speaking, an inversion — a `viz/_utils.py:8` TODO documents the plan to promote court-geometry down into `vision`.
+- Court geometry (`compute_homography`, `project_point`, `extract_hit_events`) lives in `vision/court_geometry.py`, so `analysis` and `viz` both depend on `vision` and never on each other. `tests/test_architecture.py` enforces this.
 
 ### `rallylens report` data flow
 
