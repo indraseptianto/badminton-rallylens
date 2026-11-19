@@ -7,12 +7,12 @@ original video resolution.
 Temporal ensemble
 -----------------
 Each frame is predicted by every sliding window it appears in (up to
-``SEQ_LEN`` windows), the per-frame heatmaps are averaged with a positional
-pyramid weight (frames near the window centre are trusted most, mirroring
-the TrackNetV3 paper's temporal ensemble), and only then is the coordinate
-extracted. This reduces flicker and single-window false positives at almost
-no compute cost. Set ``ensemble=False`` to restore the classic one-pass
-behaviour.
+``OUT_LEN`` windows). Every window contributes one ``(x, y, peak)`` vote and
+the frame's location is resolved by **vote clustering** (``_cluster_votes``):
+the largest cluster of nearby votes wins and its peak-weighted centroid is
+the answer. Heatmap averaging and max-pooling were both tried and rejected —
+see ``docs/UPGRADES.md`` for why. Set ``ensemble=False`` to restore the
+classic one-pass behaviour.
 
 Weights path: models/shuttle_tracknet.pth
 If the weights file is missing, ShuttleTracker logs a warning and
@@ -22,7 +22,6 @@ detect() always returns None (graceful fallback).
 from __future__ import annotations
 
 import contextlib
-import math
 import os
 from collections import deque
 from pathlib import Path
@@ -49,6 +48,9 @@ OUT_LEN = 8  # number of output heatmaps
 
 # Heatmap detection threshold
 HEATMAP_THRESH = 0.5
+
+# Votes within this many pixels (inference space, per axis) join one cluster.
+VOTE_CLUSTER_PX = 24
 
 # Default weights filename under MODELS_DIR
 DEFAULT_WEIGHTS = "shuttle_tracknet.pth"
@@ -106,20 +108,6 @@ def _stack_frames(frames: list[np.ndarray]) -> torch.Tensor:
     return torch.from_numpy(stacked).unsqueeze(0)  # (1, 3*seq_len, H, W)
 
 
-def _ensemble_weights(seq_len: int) -> np.ndarray:
-    """Pyramid weights for temporal ensemble: centre frames trusted most.
-
-    For seq_len=8 the pattern is [1, 2, 3, 4, 4, 3, 2, 1] / 20 — the same
-    positional weighting used by the TrackNetV3 paper's temporal ensemble.
-    """
-    weights = np.zeros(seq_len, dtype=np.float64)
-    for i in range(math.ceil(seq_len / 2)):
-        weights[i] = float(i + 1)
-        weights[seq_len - i - 1] = float(i + 1)
-    total = float(weights.sum())
-    return weights / total
-
-
 def _predict_location(heatmap: np.ndarray) -> tuple[int, int] | None:
     """Extract (x, y) from a single sigmoid heatmap via contour bounding box.
 
@@ -133,6 +121,41 @@ def _predict_location(heatmap: np.ndarray) -> tuple[int, int] | None:
     largest = max(contours, key=cv2.contourArea)
     bx, by, bw, bh = cv2.boundingRect(largest)
     return int(bx + bw / 2), int(by + bh / 2)
+
+
+def _cluster_votes(
+    votes: list[tuple[int, int, float]],
+) -> tuple[float, float] | None:
+    """Resolve per-window ``(x, y, peak)`` votes into one location.
+
+    Votes (inference space) are clustered greedily by proximity, strongest
+    first. The *majority* cluster wins — a lone spurious peak is outvoted even
+    if it is the strongest — and its members are averaged weighted by peak.
+    A frame seen strongly by only one window still yields a point (recall).
+    Deterministic: ties go to the cluster anchored by the stronger vote.
+    """
+    strong = [v for v in votes if v[2] >= HEATMAP_THRESH]
+    if not strong:
+        return None
+    strong.sort(key=lambda v: v[2], reverse=True)
+
+    clusters: list[list[tuple[int, int, float]]] = []
+    for v in strong:
+        for cl in clusters:
+            if abs(v[0] - cl[0][0]) <= VOTE_CLUSTER_PX and abs(v[1] - cl[0][1]) <= VOTE_CLUSTER_PX:
+                cl.append(v)
+                break
+        else:
+            clusters.append([v])
+
+    best = max(clusters, key=len)
+    wsum = sum(v[2] for v in best)
+    if wsum <= 0:
+        return None
+    return (
+        sum(v[0] * v[2] for v in best) / wsum,
+        sum(v[1] * v[2] for v in best) / wsum,
+    )
 
 
 class ShuttleTracker:
@@ -205,7 +228,6 @@ class ShuttleTracker:
             return []
 
         self._last_frame_size = frame.shape[:2]
-        orig_h, orig_w = frame.shape[:2]
         self._buffer.append(frame)
         self._idx_buffer.append(frame_idx)
 
@@ -300,33 +322,10 @@ class ShuttleTracker:
         if orig_w == 0 or orig_h == 0:
             return None
 
-        # Cluster votes: group by proximity; the majority cluster wins
-        # (a spurious single-window peak is outvoted even if it is strong),
-        # then weight-average the survivors by their heatmap peak.
-        strong = [v for v in votes if v[2] >= HEATMAP_THRESH]
-        if not strong:
+        resolved = _cluster_votes(votes)
+        if resolved is None:
             return None
-        strong.sort(key=lambda v: v[2], reverse=True)
-
-        clusters: list[list[tuple[int, int, float]]] = []
-        for v in strong:
-            anchor_x, anchor_y = v[0], v[1]
-            placed = False
-            for cl in clusters:
-                ax, ay = cl[0][0], cl[0][1]
-                if abs(anchor_x - ax) <= 24 and abs(anchor_y - ay) <= 24:
-                    cl.append(v)
-                    placed = True
-                    break
-            if not placed:
-                clusters.append([v])
-
-        best = max(clusters, key=len)
-        wsum = sum(v[2] for v in best)
-        if wsum <= 0:
-            return None
-        cx = sum(v[0] * v[2] for v in best) / wsum
-        cy = sum(v[1] * v[2] for v in best) / wsum
+        cx, cy = resolved
 
         return ShuttlePoint(
             frame_idx=frame_idx,
