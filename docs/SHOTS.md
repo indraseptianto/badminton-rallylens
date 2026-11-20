@@ -38,10 +38,14 @@ data/shots/<id>/<id>_shots.jsonl      (list[ShotEvent])
 ```
 
 - `speed_px`: max of approach/exit shuttle speed in **pixels/frame**
-  (original-video pixels — thresholds below assume ~720p/30fps; tune for
-  other resolutions).
-- `vy_after`: vertical velocity right after the hit in px/frame
-  (positive = falling, negative = rising).
+  (raw original-video pixels, as measured). The rule thresholds below are
+  defined at a reference of **1280 px wide, 30 fps**; before the rules run,
+  speeds are rescaled by `(1280 / width) * (fps / 30)`, so the same physical
+  shot gets the same label on 1080p or 60 fps footage. The persisted value is
+  the raw measurement, not the rescaled one. Footage from a very different
+  camera distance still needs threshold tuning.
+- `vy_after`: vertical velocity right after the hit in raw px/frame
+  (positive = falling, negative = rising); rescaled the same way for the rules.
 - `player_track_id`: closest player detection within ±15 frames and
   260 px of the hit (None when no player nearby).
 

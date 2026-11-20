@@ -12,19 +12,38 @@ from pathlib import Path
 import numpy as np
 
 from rallylens.analysis.events.detector import BounceDetector, ShuttleEvent
-from rallylens.common import ensure_dir, get_logger
+from rallylens.common import ensure_dir, get_logger, read_video_properties
 from rallylens.config import EVENTS_DIR
 from rallylens.pipeline.io import save_events
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 
 _log = get_logger(__name__)
 
+DEFAULT_FPS = 30.0
+
+
+def resolve_fps(video_path: Path, fps: float | None = None) -> float:
+    """Return ``fps`` if given, else the video's real frame rate.
+
+    Event kinematics scale velocities by ``fps / 30``, so assuming 30 fps on a
+    60 fps clip silently changes which events are detected. Falls back to
+    ``DEFAULT_FPS`` only when the container reports nothing usable.
+    """
+    if fps is not None:
+        return float(fps)
+    try:
+        detected = float(read_video_properties(video_path).fps)
+    except (FileNotFoundError, RuntimeError):
+        _log.warning("could not read fps from %s — assuming %.0f", video_path, DEFAULT_FPS)
+        return DEFAULT_FPS
+    return detected if detected > 0 else DEFAULT_FPS
+
 
 def run_events_pipeline(
     video_path: Path,
     video_id: str,
     track: list[ShuttlePoint] | None = None,
-    fps: int = 30,
+    fps: float | None = None,
 ) -> list[ShuttleEvent]:
     """Detect rally events (landing / hit / out_of_frame) from a shuttle track.
 
@@ -32,7 +51,8 @@ def run_events_pipeline(
         video_path: Path to the source video (used for fps detection).
         video_id:   Identifier used for the output subdirectory.
         track:      Shuttle track; when None, loads from disk.
-        fps:        Video framerate used by the kinematics calculator.
+        fps:        Video framerate for the kinematics calculator; when None it is
+                    read from ``video_path`` (see ``resolve_fps``).
 
     Returns:
         list[ShuttleEvent] — detected events, sorted by frame_idx.
@@ -53,7 +73,7 @@ def run_events_pipeline(
     xs = np.array([p.x for p in track], dtype=np.float64)
     ys = np.array([p.y for p in track], dtype=np.float64)
 
-    detector = BounceDetector(fps=fps)
+    detector = BounceDetector(fps=resolve_fps(video_path, fps))
     events = detector.detect_from_shuttle_points(frame_idxs, xs, ys)
     events.sort(key=lambda e: e.frame_idx)
 

@@ -107,9 +107,14 @@ def render_report_markdown(
         _section("## 핵심 관찰", _bullet_list(report.key_observations_ko)),
     ]
     if court_gif_path is not None:
-        sections.append(_image_section(
-            "## 코트 이동 다이어그램", "코트 이동 다이어그램", md_path, court_gif_path,
-        ))
+        sections.append(
+            _image_section(
+                "## 코트 이동 다이어그램",
+                "코트 이동 다이어그램",
+                md_path,
+                court_gif_path,
+            )
+        )
     sections.append(_player_analysis_section(report, metrics))
     sections.append(_section("## 전술 제안", _bullet_list(report.tactical_suggestions_ko)))
     sections.append(
@@ -135,16 +140,18 @@ def _player_analysis_section(report: ReportOutput, metrics: MatchMetrics) -> str
         block = [f"### {player.track_id}번 선수", _player_stats_table(player)]
         insight = insights_by_id.get(player.track_id)
         if insight is not None:
-            block.extend([
-                "",
-                insight.summary_ko,
-                "",
-                "**강점**",
-                *_bullet_list(insight.strengths_ko),
-                "",
-                "**개선 과제**",
-                *_bullet_list(insight.weaknesses_ko),
-            ])
+            block.extend(
+                [
+                    "",
+                    insight.summary_ko,
+                    "",
+                    "**강점**",
+                    *_bullet_list(insight.strengths_ko),
+                    "",
+                    "**개선 과제**",
+                    *_bullet_list(insight.weaknesses_ko),
+                ]
+            )
         blocks.append("\n".join(block))
     return "\n\n".join(blocks)
 

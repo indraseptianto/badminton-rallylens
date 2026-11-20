@@ -20,20 +20,19 @@ class KinematicsCalculator:
     注意: 输入轨迹应该是 InpaintNet 修复后的，不需要额外平滑处理
     """
 
-    def __init__(self, fps: int = 30):
+    def __init__(self, fps: float = 30.0):
         """
         Args:
             fps: 视频帧率，用于将像素/帧转换为实际速度（可选）
         """
         if fps <= 0:
-            raise ValueError('fps must be positive')
+            raise ValueError("fps must be positive")
         self.fps = fps
         self.dt = 1.0 / fps
 
-    def compute(self,
-                x: np.ndarray,
-                y: np.ndarray,
-                visibility: np.ndarray) -> dict[str, np.ndarray]:
+    def compute(
+        self, x: np.ndarray, y: np.ndarray, visibility: np.ndarray
+    ) -> dict[str, np.ndarray]:
         """
         计算完整的运动学特征
 
@@ -58,13 +57,22 @@ class KinematicsCalculator:
 
         n = len(x)
         if len(y) != n or len(visibility) != n:
-            raise ValueError('x, y and visibility must have the same length')
+            raise ValueError("x, y and visibility must have the same length")
         if n == 0:
             empty = np.array([], dtype=np.float64)
-            return {name: empty.copy() for name in (
-                'v_x', 'v_y', 'a_x', 'a_y', 'speed', 'direction', 'curvature',
-                'visibility'
-            )}
+            return {
+                name: empty.copy()
+                for name in (
+                    "v_x",
+                    "v_y",
+                    "a_x",
+                    "a_y",
+                    "speed",
+                    "direction",
+                    "curvature",
+                    "visibility",
+                )
+            }
 
         visible_indices = np.flatnonzero(visibility > 0)
         if len(visible_indices):
@@ -106,27 +114,28 @@ class KinematicsCalculator:
         speed_cubed = np.power(speed, 3)
         # 避免除以零
         curvature = np.divide(
-            cross_product, speed_cubed, out=np.zeros_like(cross_product),
-            where=speed_cubed > 1e-6
+            cross_product, speed_cubed, out=np.zeros_like(cross_product), where=speed_cubed > 1e-6
         )
 
         return {
-            'v_x': v_x,
-            'v_y': v_y,
-            'a_x': a_x,
-            'a_y': a_y,
-            'speed': speed,
-            'direction': direction,
-            'curvature': curvature,
-            'visibility': visibility
+            "v_x": v_x,
+            "v_y": v_y,
+            "a_x": a_x,
+            "a_y": a_y,
+            "speed": speed,
+            "direction": direction,
+            "curvature": curvature,
+            "visibility": visibility,
         }
 
-    def compute_at_frame(self,
-                         x: np.ndarray,
-                         y: np.ndarray,
-                         visibility: np.ndarray,
-                         frame_idx: int,
-                         window_size: int = 5) -> dict[str, float]:
+    def compute_at_frame(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        visibility: np.ndarray,
+        frame_idx: int,
+        window_size: int = 5,
+    ) -> dict[str, float]:
         """
         计算指定帧的运动学特征（使用局部窗口）
 
@@ -154,23 +163,25 @@ class KinematicsCalculator:
         local_idx = frame_idx - start
 
         return {
-            'v_x': features['v_x'][local_idx],
-            'v_y': features['v_y'][local_idx],
-            'a_x': features['a_x'][local_idx],
-            'a_y': features['a_y'][local_idx],
-            'speed': features['speed'][local_idx],
-            'direction': features['direction'][local_idx],
-            'curvature': features['curvature'][local_idx]
+            "v_x": features["v_x"][local_idx],
+            "v_y": features["v_y"][local_idx],
+            "a_x": features["a_x"][local_idx],
+            "a_y": features["a_y"][local_idx],
+            "speed": features["speed"][local_idx],
+            "direction": features["direction"][local_idx],
+            "curvature": features["curvature"][local_idx],
         }
 
-    def get_trajectory_window(self,
-                              x: np.ndarray,
-                              y: np.ndarray,
-                              visibility: np.ndarray,
-                              center_frame: int,
-                              window_size: int = 5,
-                              normalize: bool = True,
-                              img_size: tuple[int, int] = (512, 288)) -> np.ndarray:
+    def get_trajectory_window(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        visibility: np.ndarray,
+        center_frame: int,
+        window_size: int = 5,
+        normalize: bool = True,
+        img_size: tuple[int, int] = (512, 288),
+    ) -> np.ndarray:
         """
         提取以指定帧为中心的轨迹特征窗口，用于 BounceNet 输入
 
@@ -190,8 +201,8 @@ class KinematicsCalculator:
 
         # 计算完整轨迹的速度
         full_kinematics = self.compute(x, y, visibility)
-        v_x = full_kinematics['v_x']
-        v_y = full_kinematics['v_y']
+        v_x = full_kinematics["v_x"]
+        v_y = full_kinematics["v_y"]
 
         for i, offset in enumerate(range(-window_size, window_size + 1)):
             frame_idx = center_frame + offset
@@ -201,7 +212,7 @@ class KinematicsCalculator:
                     features[i, 0] = x[frame_idx] / img_size[0]  # 归一化 x
                     features[i, 1] = y[frame_idx] / img_size[1]  # 归一化 y
                     # 速度也需要归一化（除以图像对角线长度）
-                    diag = np.sqrt(img_size[0]**2 + img_size[1]**2)
+                    diag = np.sqrt(img_size[0] ** 2 + img_size[1] ** 2)
                     features[i, 2] = v_x[frame_idx] / diag
                     features[i, 3] = v_y[frame_idx] / diag
                 else:
@@ -215,7 +226,7 @@ class KinematicsCalculator:
                 if normalize:
                     features[i, 0] = x[edge_idx] / img_size[0]
                     features[i, 1] = y[edge_idx] / img_size[1]
-                    diag = np.sqrt(img_size[0]**2 + img_size[1]**2)
+                    diag = np.sqrt(img_size[0] ** 2 + img_size[1] ** 2)
                     features[i, 2] = v_x[edge_idx] / diag
                     features[i, 3] = v_y[edge_idx] / diag
                 else:
@@ -239,7 +250,7 @@ def compute_direction_change(direction: np.ndarray) -> np.ndarray:
     """
     diff = np.diff(direction)
     # 处理角度环绕: 如果差值 > π, 说明跨越了 ±π 边界
-    diff = np.where(diff > np.pi, diff - 2*np.pi, diff)
-    diff = np.where(diff < -np.pi, diff + 2*np.pi, diff)
+    diff = np.where(diff > np.pi, diff - 2 * np.pi, diff)
+    diff = np.where(diff < -np.pi, diff + 2 * np.pi, diff)
     # 在开头补一个 0
     return np.concatenate([[0], diff])

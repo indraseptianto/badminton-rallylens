@@ -251,7 +251,7 @@ Output: `data/events/<video_id>/<video_id>_events.jsonl`
 
 | Option | Default | Description |
 |---|---|---|
-| `--fps` | 30 | Video framerate for kinematics scaling |
+| `--fps` | auto | Video framerate for kinematics scaling (read from the video when omitted) |
 
 ### `detect-shots` — shot classification (smash / drive / drop / clear / net)
 
@@ -268,7 +268,26 @@ Output: `data/shots/<video_id>/<video_id>_shots.jsonl`
 
 | Option | Default | Description |
 |---|---|---|
-| `--fps` | 30 | Video framerate for kinematics scaling |
+| `--fps` | auto | Video framerate for kinematics scaling (read from the video when omitted) |
+
+### `bench` — can this machine keep up with a live feed?
+
+```bash
+uv run rallylens bench <video_path> [OPTIONS]
+```
+
+Times decode, YOLO pose and TrackNet on the first frames of a video and compares
+sustained throughput to the video's frame rate (the *real-time factor*). Exits 1
+when below the gate, so it can be scripted. Run it on the machine you will use
+live. See `docs/LIVE.md` for how to read the result.
+
+| Option | Default | Description |
+|---|---|---|
+| `--frames` | 60 | Timed frames per stage (warm-up frames are discarded) |
+| `--gate` | 1.2 | Required real-time factor (sustained fps / video fps) |
+| `--skip-pose` / `--skip-shuttle` | off | Benchmark only one stage |
+| `--pose-device` | ultralytics default | e.g. `cpu`, `cuda:0`, `mps` |
+| `--json-out` | — | Also write the report as JSON |
 
 ### `calibrate` — court calibration
 
@@ -423,7 +442,7 @@ cli → pipeline → { vision, analysis, llm, viz, ingest }
 - `pipeline.io` is the **single source** for the `(video_id) → Path` mapping and the `save_*` / `load_*` helpers. Adding a new artifact kind means adding its path, save, and load here — and nowhere else.
 - Only `vision` imports `ultralytics`/`cv2` directly. Model handler code never leaks outside this layer, so the mypy override in `pyproject.toml` is also only needed in one place.
 - Only `llm` imports `google.genai` directly. `google-genai` is an optional dependency, so users who only need `detect`/`viz` carry no install burden. `cli.py` treats `from rallylens.pipeline import run_report_pipeline` as a **lazy import**, so the SDK only loads when the `report` command actually runs.
-- `analysis` imports the court-geometry utilities from `viz._utils` (`compute_homography`, `project_point`, `extract_hit_events`). This is a direct peer-layer dependency and, strictly speaking, an inversion — a `viz/_utils.py:8` TODO documents the plan to promote court-geometry down into `vision`.
+- Court geometry (`compute_homography`, `project_point`, `extract_hit_events`) lives in `vision/court_geometry.py`, so `analysis` and `viz` both depend on `vision` and never on each other. `tests/test_architecture.py` enforces this.
 
 ### `rallylens report` data flow
 

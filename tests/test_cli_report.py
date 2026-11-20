@@ -62,10 +62,7 @@ def test_report_cmd_metrics_only_happy_path(
             metrics_path=isolated_data / "reports" / video_path_arg.stem / "metrics.json",
             report_json_path=None,
             report_md_path=None,
-            court_gif_path=isolated_data
-            / "viz"
-            / video_path_arg.stem
-            / "viz_court.gif",
+            court_gif_path=isolated_data / "viz" / video_path_arg.stem / "viz_court.gif",
         )
 
     monkeypatch.setattr("rallylens.pipeline.run_report_pipeline", fake_run)
@@ -99,9 +96,7 @@ def test_report_cmd_skip_viz(
 
     monkeypatch.setattr("rallylens.pipeline.run_report_pipeline", fake_run)
 
-    result = runner.invoke(
-        cli, ["report", str(video_path), "--metrics-only", "--skip-viz"]
-    )
+    result = runner.invoke(cli, ["report", str(video_path), "--metrics-only", "--skip-viz"])
     assert result.exit_code == 0, result.output
     assert captured["kwargs"]["skip_viz"] is True
     assert "gif:" not in result.output

@@ -17,6 +17,12 @@ import numpy as np
 
 from rallylens.common import ensure_dir
 from rallylens.vision.court_detector import CourtCorners
+from rallylens.vision.court_geometry import (
+    compute_homography,
+    extract_foot_positions,
+    foot_point_from_detection,
+    group_detections_by_frame,
+)
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 from rallylens.viz._utils import (
@@ -24,13 +30,9 @@ from rallylens.viz._utils import (
     IMG_W,
     SHUTTLE_COLOR,
     build_heatmap_over_court,
-    compute_homography,
     compute_shuttle_court_positions,
     draw_court_background,
     draw_fading_trail,
-    extract_foot_positions,
-    foot_point_from_detection,
-    group_detections_by_frame,
     track_color,
 )
 
@@ -94,9 +96,7 @@ def render_viz_court(
     for rank, tid in enumerate(observed_ids[:_MAX_DISPLAY_PLAYERS]):
         id_to_label[tid] = f"P{rank + 1}"
 
-    player_trails: dict[int, deque[tuple[int, int]]] = defaultdict(
-        lambda: deque(maxlen=trail_len)
-    )
+    player_trails: dict[int, deque[tuple[int, int]]] = defaultdict(lambda: deque(maxlen=trail_len))
     shuttle_trail: deque[tuple[int, int]] = deque(maxlen=trail_len)
 
     out_w = max(1, int(IMG_W * scale))
@@ -154,9 +154,7 @@ def render_viz_court(
                             cv2.LINE_AA,
                         )
 
-            draw_fading_trail(
-                frame, shuttle_trail, color=SHUTTLE_COLOR, head_radius=shuttle_radius
-            )
+            draw_fading_trail(frame, shuttle_trail, color=SHUTTLE_COLOR, head_radius=shuttle_radius)
             if shuttle_trail:
                 sx, sy = shuttle_trail[-1]
                 cv2.circle(frame, (sx, sy), shuttle_radius, SHUTTLE_COLOR, -1, cv2.LINE_AA)

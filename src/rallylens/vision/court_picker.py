@@ -93,8 +93,16 @@ def _draw_overlay(
         # Draw circles and labels
         for pt, label in zip(auto_pts, labels, strict=True):
             cv2.circle(img, pt, _CORNER_POINT_RADIUS, (0, 220, 220), 2)
-            cv2.putText(img, f"AUTO:{label}", (pt[0] + 12, pt[1] - 6),
-                        _FONT, _FONT_SCALE - 0.1, (0, 220, 220), _FONT_THICK, cv2.LINE_AA)
+            cv2.putText(
+                img,
+                f"AUTO:{label}",
+                (pt[0] + 12, pt[1] - 6),
+                _FONT,
+                _FONT_SCALE - 0.1,
+                (0, 220, 220),
+                _FONT_THICK,
+                cv2.LINE_AA,
+            )
 
     # ── User-placed click points ──
     display_clicks = [(int(x * scale), int(y * scale)) for x, y in clicks]
@@ -111,10 +119,18 @@ def _draw_overlay(
     for i, pt in enumerate(display_clicks):
         label = CORNER_ORDER[i]
         circle_color = (0, 220, 0) if len(clicks) == 4 else (255, 255, 255)
-        cv2.circle(img, pt, _CORNER_POINT_RADIUS, (0, 0, 0), -1)   # black border
+        cv2.circle(img, pt, _CORNER_POINT_RADIUS, (0, 0, 0), -1)  # black border
         cv2.circle(img, pt, 8, circle_color, -1)
-        cv2.putText(img, f"{i + 1}:{label}", (pt[0] + 12, pt[1] - 6),
-                    _FONT, _FONT_SCALE - 0.05, circle_color, _FONT_THICK, cv2.LINE_AA)
+        cv2.putText(
+            img,
+            f"{i + 1}:{label}",
+            (pt[0] + 12, pt[1] - 6),
+            _FONT,
+            _FONT_SCALE - 0.05,
+            circle_color,
+            _FONT_THICK,
+            cv2.LINE_AA,
+        )
 
     # ── Status bar ──
     overlay = img.copy()
@@ -129,15 +145,24 @@ def _draw_overlay(
     else:
         status = "4 corners set.  ENTER=save  BKSP=undo  R=reset  Q=cancel"
 
-    cv2.putText(img, status, (10, h - 12), _FONT, _FONT_SCALE, (220, 220, 220),
-                _FONT_THICK, cv2.LINE_AA)
+    cv2.putText(
+        img, status, (10, h - 12), _FONT, _FONT_SCALE, (220, 220, 220), _FONT_THICK, cv2.LINE_AA
+    )
 
     # ── Top header bar ──
     overlay2 = img.copy()
     cv2.rectangle(overlay2, (0, 0), (w, _HEADER_BAR_HEIGHT), (30, 30, 30), -1)
     cv2.addWeighted(overlay2, 0.75, img, 0.25, 0, img)
-    cv2.putText(img, "RallyLens  Court Calibration", (10, 20),
-                _FONT, _FONT_SCALE, (200, 200, 200), _FONT_THICK, cv2.LINE_AA)
+    cv2.putText(
+        img,
+        "RallyLens  Court Calibration",
+        (10, 20),
+        _FONT,
+        _FONT_SCALE,
+        (200, 200, 200),
+        _FONT_THICK,
+        cv2.LINE_AA,
+    )
 
     return img
 
@@ -204,10 +229,10 @@ def pick_court_corners_interactively(
     # Pre-fill with auto-detected corners so the user can confirm immediately
     if initial_corners is not None:
         orig_pts = [
-            (int(initial_corners.top_left[0]),    int(initial_corners.top_left[1])),
-            (int(initial_corners.top_right[0]),   int(initial_corners.top_right[1])),
+            (int(initial_corners.top_left[0]), int(initial_corners.top_left[1])),
+            (int(initial_corners.top_right[0]), int(initial_corners.top_right[1])),
             (int(initial_corners.bottom_right[0]), int(initial_corners.bottom_right[1])),
-            (int(initial_corners.bottom_left[0]),  int(initial_corners.bottom_left[1])),
+            (int(initial_corners.bottom_left[0]), int(initial_corners.bottom_left[1])),
         ]
         # We do NOT pre-fill state.clicks; instead we draw the ghost and let the user
         # decide to confirm (Enter) or redo (R).  The pre-fill into state.clicks happens

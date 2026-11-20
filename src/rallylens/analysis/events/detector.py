@@ -49,7 +49,7 @@ class BounceDetector:
 
     def __init__(
         self,
-        fps: int = 30,
+        fps: float = 30.0,
         # landing parameters
         speed_drop_ratio: float = 0.3,
         min_speed_before_landing: float = 8.0,

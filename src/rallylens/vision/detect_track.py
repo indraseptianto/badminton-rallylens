@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
+import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 from rallylens.common import ensure_dir, get_logger
@@ -42,6 +44,54 @@ def _tracker_config_name(tracker: TrackerName) -> str | None:
     if tracker == "botsort":
         return "botsort.yaml"
     raise ValueError(f"unknown tracker: {tracker}")
+
+
+def load_pose_model(weights: str = "yolo11s-pose.pt") -> Any:
+    """Load a YOLO pose model; first use downloads the weights into MODELS_DIR."""
+    ensure_dir(MODELS_DIR)
+    from ultralytics import YOLO
+
+    weight_path = MODELS_DIR / weights
+    with contextlib.chdir(MODELS_DIR):
+        return YOLO(str(weight_path) if weight_path.exists() else weights)
+
+
+def make_frame_detector(
+    weights: str = "yolo11s-pose.pt",
+    conf: float = 0.25,
+    imgsz: int = 1280,
+    max_det: int = 2,
+    tracker: TrackerName = None,
+    device: str | None = None,
+) -> Callable[[np.ndarray], int]:
+    """Return a callable running pose (+ optional tracking) on ONE BGR frame.
+
+    The streaming counterpart of ``detect_and_track_players``: used by the
+    throughput benchmark and the basis for live mode. The callable returns the
+    number of detections in the frame. ``device`` is passed to ultralytics
+    (e.g. ``"cpu"``, ``"cuda:0"``, ``"mps"``); None keeps its default choice.
+    """
+    model = load_pose_model(weights)
+    tracker_cfg = _tracker_config_name(tracker)
+    kwargs: dict[str, Any] = {
+        "conf": conf,
+        "imgsz": imgsz,
+        "max_det": max_det,
+        "classes": [0],
+        "verbose": False,
+    }
+    if device:
+        kwargs["device"] = device
+
+    def run(frame: np.ndarray) -> int:
+        if tracker_cfg is None:
+            results = model.predict(frame, **kwargs)
+        else:
+            results = model.track(frame, tracker=tracker_cfg, persist=True, **kwargs)
+        boxes = results[0].boxes
+        return 0 if boxes is None else len(boxes)
+
+    return run
 
 
 def select_two_players(detections: list[Detection]) -> list[Detection]:
@@ -88,12 +138,7 @@ def detect_and_track_players(
     if not clip_path.exists():
         raise FileNotFoundError(clip_path)
 
-    ensure_dir(MODELS_DIR)
-    from ultralytics import YOLO
-
-    weight_path = MODELS_DIR / weights
-    with contextlib.chdir(MODELS_DIR):
-        model = YOLO(str(weight_path) if weight_path.exists() else weights)
+    model = load_pose_model(weights)
 
     tracker_cfg = _tracker_config_name(tracker)
     _log.info(
@@ -141,8 +186,7 @@ def detect_and_track_players(
             if tracker_cfg is not None:
                 if not warned_missing_ids:
                     _log.warning(
-                        "tracker=%s requested but boxes.id is None on frame %d — "
-                        "skipping frame",
+                        "tracker=%s requested but boxes.id is None on frame %d — skipping frame",
                         tracker_cfg,
                         frame_idx,
                     )
@@ -161,9 +205,7 @@ def detect_and_track_players(
             if kp_xy is not None:
                 points = [(float(p[0]), float(p[1])) for p in kp_xy[i]]
                 scores = (
-                    [float(s) for s in kp_conf[i]]
-                    if kp_conf is not None
-                    else [1.0] * len(points)
+                    [float(s) for s in kp_conf[i]] if kp_conf is not None else [1.0] * len(points)
                 )
             else:
                 points = []

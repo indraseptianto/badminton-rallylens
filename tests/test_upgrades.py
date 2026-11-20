@@ -7,27 +7,44 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from rallylens.analysis.events.detector import ShuttleEvent
 from rallylens.analysis.shot_classifier import ShotEvent, classify_hit, classify_shots
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.rectifier import TrajectoryRefiner
-from rallylens.vision.shuttle_tracker import ShuttlePoint, _ensemble_weights
+from rallylens.vision.shuttle_tracker import ShuttlePoint, _cluster_votes
 
 # ---------------------------------------------------------------------------
 # 1. Temporal ensemble
 # ---------------------------------------------------------------------------
 
 
-def test_ensemble_weights_pyramid():
-    w = _ensemble_weights(8)
-    assert len(w) == 8
-    expected = np.array([1, 2, 3, 4, 4, 3, 2, 1], dtype=float) / 20.0
-    np.testing.assert_allclose(w, expected, atol=1e-9)
-    assert abs(w.sum() - 1.0) < 1e-9
-    # Centre frames must outweigh the edges.
-    assert w[3] > w[0]
+def test_vote_majority_beats_a_stronger_outlier():
+    # Three agreeing windows vs one very strong spurious peak far away.
+    votes = [(100, 100, 0.8), (102, 101, 0.7), (99, 99, 0.6), (400, 250, 0.99)]
+    cx, cy = _cluster_votes(votes)
+    assert abs(cx - 100) < 3 and abs(cy - 100) < 3
+
+
+def test_single_strong_vote_still_emits():
+    # Recall: averaging collapsed 22 -> 5 points because lone peaks were diluted.
+    assert _cluster_votes([(50, 60, 0.9)]) == (50.0, 60.0)
+
+
+def test_vote_centroid_is_peak_weighted():
+    cx, _ = _cluster_votes([(100, 100, 0.9), (110, 100, 0.5)])
+    assert 100 < cx < 105  # pulled toward the stronger vote, not the midpoint
+
+
+def test_vote_resolution_is_deterministic_and_order_independent():
+    votes = [(10, 10, 0.6), (200, 200, 0.7), (12, 11, 0.8), (205, 198, 0.9)]
+    first = _cluster_votes(votes)
+    assert first == _cluster_votes(list(reversed(votes)))
+    assert first == _cluster_votes(votes)
+
+
+def test_no_votes_or_weak_votes_yield_none():
+    assert _cluster_votes([]) is None
+    assert _cluster_votes([(10, 10, 0.3)]) is None
 
 
 # ---------------------------------------------------------------------------
@@ -172,8 +189,14 @@ def test_drop_slow_falling():
 
 def test_classify_shots_filters_non_hit():
     landing = ShuttleEvent(
-        frame_idx=200, x=100, y=500, event_type="landing", rule="speed_drop",
-        confidence=0.8, all_rules=[], features={},
+        frame_idx=200,
+        x=100,
+        y=500,
+        event_type="landing",
+        rule="speed_drop",
+        confidence=0.8,
+        all_rules=[],
+        features={},
     )
     shots = classify_shots([landing], _track_around(200, 20, 2), [_player(200)])
     assert shots == []
@@ -181,8 +204,14 @@ def test_classify_shots_filters_non_hit():
 
 def test_shot_event_model_roundtrip():
     shot = ShotEvent(
-        frame_idx=10, player_track_id=2, shot_type="smash", confidence=0.85,
-        speed_px=35.0, vy_after=3.0, x=100, y=200,
+        frame_idx=10,
+        player_track_id=2,
+        shot_type="smash",
+        confidence=0.85,
+        speed_px=35.0,
+        vy_after=3.0,
+        x=100,
+        y=200,
     )
     data = shot.model_dump()
     assert data["shot_type"] == "smash"

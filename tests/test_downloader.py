@@ -59,9 +59,7 @@ def test_download_video_calls_extract_info(monkeypatch: pytest.MonkeyPatch, tmp_
     assert sidecar.exists()
 
 
-def test_download_video_cache_hit_skips_network(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
+def test_download_video_cache_hit_skips_network(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     video_id = "dQw4w9WgXcQ"
     (tmp_path / f"{video_id}.mp4").write_bytes(b"fake mp4")
     meta = VideoMeta(
@@ -72,9 +70,7 @@ def test_download_video_cache_hit_skips_network(
         url=f"https://www.youtube.com/watch?v={video_id}",
         source_path=tmp_path / f"{video_id}.mp4",
     )
-    (tmp_path / f"{video_id}.meta.json").write_text(
-        meta.model_dump_json(), encoding="utf-8"
-    )
+    (tmp_path / f"{video_id}.meta.json").write_text(meta.model_dump_json(), encoding="utf-8")
 
     def boom(*_args, **_kwargs):
         raise AssertionError("YoutubeDL must not be constructed on cache hit")
