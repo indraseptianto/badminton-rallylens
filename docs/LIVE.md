@@ -63,3 +63,20 @@ frame), i.e. far below real-time. GPU/Apple-Silicon numbers are not yet measured
   differentiation produces non-physical accelerations.
 - Players swap sides between games; identity must follow a game state machine,
   not "upper/lower" labels.
+
+## Phase 1 harness (implemented): replay-as-live
+
+`rallylens live <video> --from-track [--brief-every 60] [--speed 1]` replays a saved
+shuttle track frame by frame through the same components a camera loop will use:
+
+- `live/incremental.py` — re-runs the batch `BounceDetector` and releases an event only
+  after `settle_s` (0.3 s) of newer frames exist, so live and batch results match
+  (tested: `test_incremental_equals_batch`).
+- `live/segmenter.py` — events → rallies (first hit → landing, or 4 s of silence).
+- `live/briefing.py` — Indonesian coach briefing per interval. Shows `n/a` instead of
+  guessing (no calibration → no landing zones; < 5 shots → counts, no percentages).
+- `live/queue.py` — drop-oldest bounded queue for the camera loop.
+
+Not done yet: camera/stream frame source, per-frame pose attribution in live mode
+(shots are classified without player IDs), scoreboard input. Camera mode requires
+`rallylens bench` to pass on the target hardware first.

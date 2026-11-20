@@ -251,6 +251,54 @@ def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
         )
 
 
+@cli.command("live")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--from-track",
+    is_flag=True,
+    required=True,
+    help="Replay the saved shuttle track as if live (camera mode not implemented yet).",
+)
+@click.option(
+    "--brief-every",
+    type=float,
+    default=60.0,
+    show_default=True,
+    help="Seconds of video between coach briefings.",
+)
+@click.option(
+    "--speed",
+    type=float,
+    default=0.0,
+    show_default=True,
+    help="Playback multiple: 1 = real time, 0 = as fast as possible.",
+)
+def live_cmd(video_path: Path, from_track: bool, brief_every: float, speed: float) -> None:
+    """Replay a saved shuttle track as a live feed and print interval briefings."""
+    from rallylens.live.session import replay_live
+    from rallylens.pipeline.events import resolve_fps, resolve_video_size
+    from rallylens.pipeline.io import load_court_corners, load_shuttle_track
+
+    vid = video_path.stem
+    try:
+        track = load_shuttle_track(vid)
+    except FileNotFoundError:
+        raise click.ClickException(
+            f"no shuttle track for {vid}; run detect-shuttle first"
+        ) from None
+    try:
+        corners = load_court_corners(vid)
+    except FileNotFoundError:
+        corners = None
+    size = resolve_video_size(video_path)
+    if size is None:
+        raise click.ClickException("cannot read the video frame size")
+    replay_live(
+        track, fps=resolve_fps(video_path), frame_size=size, brief_every_s=brief_every,
+        corners=corners, speed=speed, on_briefing=lambda b: click.echo(b.text() + "\n"),
+    )  # fmt: skip
+
+
 @cli.command("calibrate")
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
