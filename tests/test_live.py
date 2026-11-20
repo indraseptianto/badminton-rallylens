@@ -120,3 +120,54 @@ def test_replay_emits_briefings_without_sleeping() -> None:
     assert len(got) >= 2
     assert len(sleeps) == 300 and sleeps[0] == pytest.approx(1 / 60)
     assert replay_live([], fps=FPS, frame_size=SIZE) == []
+
+
+def test_runner_feeds_engine_and_counts_drops() -> None:
+    from rallylens.live.runner import run_live
+    from rallylens.live.session import LiveEngine
+
+    track = {p.frame_idx: p for p in zigzag_track()}
+    blank = np.zeros((2, 2, 3), dtype=np.uint8)
+    frames = ((i, blank) for i in range(300))
+
+    def detect(_f: np.ndarray, idx: int) -> list[ShuttlePoint]:
+        return [track[idx]]
+
+    engine = LiveEngine(fps=FPS, frame_size=SIZE, brief_every_s=4.0)
+    dropped = run_live(frames, detect, engine, queue_size=400, flush=lambda: [])
+    assert dropped == 0 and len(engine.finish()) >= 2
+
+
+def test_runner_drops_when_consumer_is_slow() -> None:
+    import time
+
+    from rallylens.live.runner import run_live
+    from rallylens.live.session import LiveEngine
+
+    blank = np.zeros((2, 2, 3), dtype=np.uint8)
+    engine = LiveEngine(fps=FPS, frame_size=SIZE)
+
+    def slow(_f: np.ndarray, _i: int) -> list[ShuttlePoint]:
+        time.sleep(0.01)
+        return []
+
+    dropped = run_live(((i, blank) for i in range(200)), slow, engine, queue_size=2)
+    assert dropped > 0
+
+
+def test_frame_source_reads_file(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import cv2
+
+    from rallylens.vision.frame_source import FrameSource
+
+    path = tmp_path / "t.mp4"
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (64, 48))
+    for _ in range(5):
+        w.write(np.zeros((48, 64, 3), dtype=np.uint8))
+    w.release()
+    with FrameSource(str(path)) as src:
+        got = [i for i, _ in src]
+        assert got == [0, 1, 2, 3, 4]
+        assert (src.info.width, src.info.height) == (64, 48) and src.info.fps == 25.0
+    with pytest.raises(RuntimeError):
+        FrameSource(str(tmp_path / "missing.mp4"))

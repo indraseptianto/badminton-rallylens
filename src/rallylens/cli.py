@@ -10,6 +10,7 @@ from rallylens import __version__
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video, parse_time
+from rallylens.live.briefing import Briefing
 from rallylens.pipeline import (
     run_court_detection,
     run_court_detection_interactive,
@@ -252,12 +253,11 @@ def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
 
 
 @cli.command("live")
-@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("source")
 @click.option(
     "--from-track",
     is_flag=True,
-    required=True,
-    help="Replay the saved shuttle track as if live (camera mode not implemented yet).",
+    help="Replay SOURCE's saved shuttle track instead of running models.",
 )
 @click.option(
     "--brief-every",
@@ -271,32 +271,73 @@ def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
     type=float,
     default=0.0,
     show_default=True,
-    help="Playback multiple: 1 = real time, 0 = as fast as possible.",
+    help="--from-track only: 1 = real time, 0 = as fast as possible.",
 )
-def live_cmd(video_path: Path, from_track: bool, brief_every: float, speed: float) -> None:
-    """Replay a saved shuttle track as a live feed and print interval briefings."""
-    from rallylens.live.session import replay_live
-    from rallylens.pipeline.events import resolve_fps, resolve_video_size
+@click.option(
+    "--fps",
+    type=float,
+    default=30.0,
+    show_default=True,
+    help="Fallback fps when the camera/stream does not report one.",
+)
+@click.option(
+    "--corners-from",
+    "corners_id",
+    default=None,
+    help="video_id whose saved court calibration to use (default: file stem).",
+)
+@click.option(
+    "--weights",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="TrackNet weights (default: models/shuttle_tracknet.pth).",
+)
+@click.option("--max-seconds", type=float, default=None, help="Stop after this much video time.")
+def live_cmd(
+    source: str, from_track: bool, brief_every: float, speed: float, fps: float,
+    corners_id: str | None, weights: Path | None, max_seconds: float | None,
+) -> None:  # fmt: skip
+    """Live coach briefings from a camera index (0), stream URL (rtsp://...) or file."""
+    from rallylens.live.runner import run_live
+    from rallylens.live.session import LiveEngine, replay_live
     from rallylens.pipeline.io import load_court_corners, load_shuttle_track
+    from rallylens.vision.frame_source import FrameSource
+    from rallylens.vision.shuttle_tracker import ShuttleTracker
 
-    vid = video_path.stem
-    try:
-        track = load_shuttle_track(vid)
-    except FileNotFoundError:
-        raise click.ClickException(
-            f"no shuttle track for {vid}; run detect-shuttle first"
-        ) from None
+    vid = corners_id or Path(source).stem
     try:
         corners = load_court_corners(vid)
     except FileNotFoundError:
         corners = None
-    size = resolve_video_size(video_path)
-    if size is None:
-        raise click.ClickException("cannot read the video frame size")
-    replay_live(
-        track, fps=resolve_fps(video_path), frame_size=size, brief_every_s=brief_every,
-        corners=corners, speed=speed, on_briefing=lambda b: click.echo(b.text() + "\n"),
-    )  # fmt: skip
+        click.echo("(tanpa kalibrasi lapangan — zona jatuh = n/a)", err=True)
+
+    def show(b: Briefing) -> None:
+        click.echo(b.text() + "\n")
+
+    with FrameSource(source, fps_fallback=fps) as src:
+        info = src.info
+        size = (info.width, info.height)
+        if from_track:
+            try:
+                track = load_shuttle_track(Path(source).stem)
+            except FileNotFoundError:
+                raise click.ClickException("no saved shuttle track; run detect-shuttle") from None
+            replay_live(track, fps=info.fps, frame_size=size, brief_every_s=brief_every,
+                        corners=corners, speed=speed, on_briefing=show)  # fmt: skip
+            return
+        tracker = ShuttleTracker(weights)
+        if not tracker.enabled:
+            raise click.ClickException("TrackNet weights not found (use --weights)")
+        engine = LiveEngine(fps=info.fps, frame_size=size, brief_every_s=brief_every,
+                            corners=corners, on_briefing=show)  # fmt: skip
+        max_frames = int(max_seconds * info.fps) if max_seconds else None
+        try:
+            dropped = run_live(src, tracker.detect, engine, max_frames=max_frames,
+                               flush=tracker.flush)  # fmt: skip
+        except KeyboardInterrupt:
+            dropped = 0
+            engine.finish()
+        click.echo(f"selesai; {dropped} frame di-drop karena model tidak kejar real-time")
 
 
 @cli.command("calibrate")
