@@ -39,6 +39,18 @@ def resolve_fps(video_path: Path, fps: float | None = None) -> float:
     return detected if detected > 0 else DEFAULT_FPS
 
 
+def resolve_video_size(video_path: Path) -> tuple[int, int] | None:
+    """Real ``(width, height)`` of the video, or None when it cannot be read."""
+    try:
+        props = read_video_properties(video_path)
+    except (FileNotFoundError, RuntimeError):
+        _log.warning("could not read frame size from %s — inferring from the track", video_path)
+        return None
+    if props.width <= 0 or props.height <= 0:
+        return None
+    return (props.width, props.height)
+
+
 def run_events_pipeline(
     video_path: Path,
     video_id: str,
@@ -74,7 +86,9 @@ def run_events_pipeline(
     ys = np.array([p.y for p in track], dtype=np.float64)
 
     detector = BounceDetector(fps=resolve_fps(video_path, fps))
-    events = detector.detect_from_shuttle_points(frame_idxs, xs, ys)
+    events = detector.detect_from_shuttle_points(
+        frame_idxs, xs, ys, frame_size=resolve_video_size(video_path)
+    )
     events.sort(key=lambda e: e.frame_idx)
 
     ensure_dir(EVENTS_DIR / video_id)
