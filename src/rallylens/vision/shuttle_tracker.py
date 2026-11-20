@@ -73,6 +73,15 @@ def _resolve_device() -> torch.device:
     return torch.device("cpu")
 
 
+def describe_compute() -> str:
+    """One-line description of the torch backends and the device TrackNet would use."""
+    return (
+        f"torch {torch.__version__} "
+        f"(cuda={torch.cuda.is_available()}, mps={torch.backends.mps.is_available()}), "
+        f"shuttle device: {_resolve_device()}"
+    )
+
+
 class ShuttlePoint(BaseModel):
     """Single shuttlecock detection in one frame."""
 
@@ -211,6 +220,15 @@ class ShuttleTracker:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    @property
+    def enabled(self) -> bool:
+        """False when the weights were missing: ``detect()`` then always returns ``[]``."""
+        return self._enabled
+
+    @property
+    def device_name(self) -> str:
+        return str(self._device) if self._enabled else "disabled"
 
     def detect(self, frame: np.ndarray, frame_idx: int) -> list[ShuttlePoint]:
         """Add a frame to the buffer and run detection when buffer is full.

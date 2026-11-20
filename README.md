@@ -251,7 +251,7 @@ Output: `data/events/<video_id>/<video_id>_events.jsonl`
 
 | Option | Default | Description |
 |---|---|---|
-| `--fps` | 30 | Video framerate for kinematics scaling |
+| `--fps` | auto | Video framerate for kinematics scaling (read from the video when omitted) |
 
 ### `detect-shots` — shot classification (smash / drive / drop / clear / net)
 
@@ -268,7 +268,26 @@ Output: `data/shots/<video_id>/<video_id>_shots.jsonl`
 
 | Option | Default | Description |
 |---|---|---|
-| `--fps` | 30 | Video framerate for kinematics scaling |
+| `--fps` | auto | Video framerate for kinematics scaling (read from the video when omitted) |
+
+### `bench` — can this machine keep up with a live feed?
+
+```bash
+uv run rallylens bench <video_path> [OPTIONS]
+```
+
+Times decode, YOLO pose and TrackNet on the first frames of a video and compares
+sustained throughput to the video's frame rate (the *real-time factor*). Exits 1
+when below the gate, so it can be scripted. Run it on the machine you will use
+live. See `docs/LIVE.md` for how to read the result.
+
+| Option | Default | Description |
+|---|---|---|
+| `--frames` | 60 | Timed frames per stage (warm-up frames are discarded) |
+| `--gate` | 1.2 | Required real-time factor (sustained fps / video fps) |
+| `--skip-pose` / `--skip-shuttle` | off | Benchmark only one stage |
+| `--pose-device` | ultralytics default | e.g. `cpu`, `cuda:0`, `mps` |
+| `--json-out` | — | Also write the report as JSON |
 
 ### `calibrate` — court calibration
 

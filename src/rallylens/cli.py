@@ -18,6 +18,7 @@ from rallylens.pipeline import (
     run_shots_pipeline,
     run_shuttle_pipeline,
 )
+from rallylens.pipeline.bench import GATE_DEFAULT, format_report, run_benchmark
 from rallylens.pipeline.io import (
     court_corners_path,
     events_path,
@@ -134,6 +135,81 @@ def detect_shuttle_cmd(
     )
     out_path = shuttle_track_path(video_path.stem)
     click.echo(f"shuttle track ({len(track)} points): {out_path}")
+
+
+@cli.command("bench")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--frames",
+    type=click.IntRange(min=10),
+    default=60,
+    show_default=True,
+    help="Timed frames per stage (after warm-up frames, which are discarded).",
+)
+@click.option(
+    "--gate",
+    type=float,
+    default=GATE_DEFAULT,
+    show_default=True,
+    help="Required real-time factor (sustained fps / video fps).",
+)
+@click.option("--skip-pose", is_flag=True, default=False, help="Do not benchmark pose.")
+@click.option("--skip-shuttle", is_flag=True, default=False, help="Do not benchmark TrackNet.")
+@click.option(
+    "--weights",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="TrackNet weights (default: models/shuttle_tracknet.pth).",
+)
+@click.option(
+    "--pose-device",
+    default=None,
+    help="Device for YOLO pose, e.g. cpu, cuda:0, mps (default: ultralytics' choice).",
+)
+@click.option("--imgsz", type=int, default=1280, show_default=True, help="YOLO inference size.")
+@click.option(
+    "--json-out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Also write the report as JSON.",
+)
+def bench_cmd(
+    video_path: Path,
+    frames: int,
+    gate: float,
+    skip_pose: bool,
+    skip_shuttle: bool,
+    weights: Path | None,
+    pose_device: str | None,
+    imgsz: int,
+    json_out: Path | None,
+) -> None:
+    """Measure whether this machine can keep up with a live feed.
+
+    Times decode, pose and TrackNet on the first frames of VIDEO_PATH and
+    compares throughput to the video's frame rate. Exits 1 if below the gate,
+    so it can be used in scripts.
+    """
+    try:
+        report = run_benchmark(
+            video_path,
+            frames=frames,
+            gate=gate,
+            pose=not skip_pose,
+            shuttle=not skip_shuttle,
+            shuttle_weights=weights,
+            pose_device=pose_device,
+            imgsz=imgsz,
+        )
+    except (RuntimeError, ValueError, FileNotFoundError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(format_report(report))
+    if json_out is not None:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(report.model_dump_json(indent=2))
+        click.echo(f"report written: {json_out}")
+    if report.verdict == "fail":
+        raise SystemExit(1)
 
 
 @cli.command("detect-events")

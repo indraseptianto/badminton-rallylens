@@ -37,8 +37,9 @@ def run_shuttle_pipeline(
                       (linear gap-fill + InpaintNet) on the raw detections.
                       Falls back to raw detections if the InpaintNet weights
                       are unavailable or the rectifier raises.
-        ensemble:     When True (default), average each frame's heatmap over
-                      every overlapping TrackNet window (temporal ensemble).
+        ensemble:     When True (default), resolve each frame from the votes of
+                      every overlapping TrackNet window (vote-clustering temporal
+                      ensemble, see docs/UPGRADES.md).
 
     Returns:
         list[ShuttlePoint] — one entry per estimated frame, sorted by frame_idx.
