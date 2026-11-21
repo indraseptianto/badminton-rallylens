@@ -94,6 +94,77 @@ def make_frame_detector(
     return run
 
 
+def detections_from_result(
+    result: Any, frame_idx: int, require_ids: bool = False
+) -> list[Detection] | None:
+    """Convert one ultralytics result into ``Detection`` records.
+
+    Returns ``[]`` for an empty frame, and None when ``require_ids`` is set but the
+    tracker produced no IDs for the frame (caller decides whether to warn/skip).
+    """
+    boxes = result.boxes
+    kps = result.keypoints
+    if boxes is None or len(boxes) == 0:
+        return []
+    xyxy = boxes.xyxy.cpu().numpy()
+    confs = boxes.conf.cpu().numpy()
+    ids: list[int] | None = None
+    if getattr(boxes, "id", None) is not None:
+        ids = boxes.id.cpu().numpy().astype(int).tolist()
+    elif require_ids:
+        return None
+    kp_xy = kp_conf = None
+    if kps is not None and kps.xy is not None:
+        kp_xy = kps.xy.cpu().numpy()
+        kp_conf = kps.conf.cpu().numpy() if kps.conf is not None else None
+    out: list[Detection] = []
+    for i in range(len(boxes)):
+        x1, y1, x2, y2 = xyxy[i].tolist()
+        points: list[tuple[float, float]] = []
+        scores: list[float] = []
+        if kp_xy is not None:
+            points = [(float(p[0]), float(p[1])) for p in kp_xy[i]]
+            scores = [float(v) for v in kp_conf[i]] if kp_conf is not None else [1.0] * len(points)
+        out.append(
+            Detection(
+                frame_idx=frame_idx,
+                bbox_xyxy=(x1, y1, x2, y2),
+                confidence=float(confs[i]),
+                keypoints_xy=points,
+                keypoints_conf=scores,
+                track_id=int(ids[i]) if ids is not None and i < len(ids) else None,
+            )
+        )
+    return out
+
+
+def make_frame_pose(
+    weights: str = "yolo11s-pose.pt",
+    conf: float = 0.25,
+    imgsz: int = 1280,
+    max_det: int = 2,
+    tracker: TrackerName = "bytetrack",
+    device: str | None = None,
+) -> Callable[[np.ndarray, int], list[Detection]]:
+    """Streaming pose (+tracking) on ONE BGR frame, returning ``Detection`` records."""
+    model = load_pose_model(weights)
+    tracker_cfg = _tracker_config_name(tracker)
+    kwargs: dict[str, Any] = {
+        "conf": conf, "imgsz": imgsz, "max_det": max_det, "classes": [0], "verbose": False,
+    }  # fmt: skip
+    if device:
+        kwargs["device"] = device
+
+    def run(frame: np.ndarray, frame_idx: int) -> list[Detection]:
+        if tracker_cfg is None:
+            results = model.predict(frame, **kwargs)
+        else:
+            results = model.track(frame, tracker=tracker_cfg, persist=True, **kwargs)
+        return detections_from_result(results[0], frame_idx) or []
+
+    return run
+
+
 def select_two_players(detections: list[Detection]) -> list[Detection]:
     """Post-processing: keep only the 2 most frame-frequent track IDs.
 
@@ -172,54 +243,17 @@ def detect_and_track_players(
         frames_seen = frame_idx + 1
         if frames_seen % log_interval == 0:
             _log.info("processed %d frames (%d detections so far)", frames_seen, len(detections))
-        boxes = result.boxes
-        kps = result.keypoints
-        if boxes is None or len(boxes) == 0:
+        found = detections_from_result(result, frame_idx, require_ids=tracker_cfg is not None)
+        if found is None:
+            if not warned_missing_ids:
+                _log.warning(
+                    "tracker=%s requested but boxes.id is None on frame %d — skipping frame",
+                    tracker_cfg,
+                    frame_idx,
+                )
+                warned_missing_ids = True
             continue
-
-        xyxy = boxes.xyxy.cpu().numpy()
-        confs = boxes.conf.cpu().numpy()
-        if getattr(boxes, "id", None) is not None:
-            ids = boxes.id.cpu().numpy().astype(int).tolist()
-        else:
-            ids = None
-            if tracker_cfg is not None:
-                if not warned_missing_ids:
-                    _log.warning(
-                        "tracker=%s requested but boxes.id is None on frame %d — skipping frame",
-                        tracker_cfg,
-                        frame_idx,
-                    )
-                    warned_missing_ids = True
-                continue
-
-        if kps is not None and kps.xy is not None:
-            kp_xy = kps.xy.cpu().numpy()
-            kp_conf = kps.conf.cpu().numpy() if kps.conf is not None else None
-        else:
-            kp_xy = None
-            kp_conf = None
-
-        for i in range(len(boxes)):
-            x1, y1, x2, y2 = xyxy[i].tolist()
-            if kp_xy is not None:
-                points = [(float(p[0]), float(p[1])) for p in kp_xy[i]]
-                scores = (
-                    [float(s) for s in kp_conf[i]] if kp_conf is not None else [1.0] * len(points)
-                )
-            else:
-                points = []
-                scores = []
-            detections.append(
-                Detection(
-                    frame_idx=frame_idx,
-                    bbox_xyxy=(x1, y1, x2, y2),
-                    confidence=float(confs[i]),
-                    keypoints_xy=points,
-                    keypoints_conf=scores,
-                    track_id=int(ids[i]) if ids is not None and i < len(ids) else None,
-                )
-            )
+        detections.extend(found)
 
     if singles and tracker_cfg is not None:
         detections = select_two_players(detections)

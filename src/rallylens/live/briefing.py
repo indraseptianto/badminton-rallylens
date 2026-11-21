@@ -28,6 +28,7 @@ class Briefing(BaseModel):
     longest_s: float | None
     shot_counts: dict[str, int]
     landing_zones: dict[str, int] | None  # None → no court calibration
+    player_shots: dict[int, int]  # tracker id → classified shots; empty without pose
     low_confidence: bool
     lines: list[str]
 
@@ -64,7 +65,7 @@ def build_briefing(
         return Briefing(
             from_frame=from_frame, to_frame=to_frame, rallies=0, avg_shots=None,
             longest_shots=None, longest_s=None, shot_counts=dict(counts),
-            landing_zones=None, low_confidence=True, lines=lines,
+            landing_zones=None, player_shots={}, low_confidence=True, lines=lines,
         )  # fmt: skip
 
     lengths = [r.shot_count for r in rallies]
@@ -84,6 +85,14 @@ def build_briefing(
     else:
         listed = ", ".join(f"{k} {v / n_shots:.0%}" for k, v in counts.most_common())
         lines.append(f"Jenis pukulan ({n_shots}): {listed}.")
+
+    players = dict(Counter(s.player_track_id for s in shots if s.player_track_id is not None))
+    if players:
+        listed = ", ".join(f"pemain #{k} {v}" for k, v in sorted(players.items()))
+        attributed = sum(players.values())
+        lines.append(f"Pukulan per pemain ({attributed}/{len(shots)} teratribusi): {listed}.")
+    else:
+        lines.append("Pukulan per pemain: n/a (pose belum aktif).")
 
     zones: dict[str, int] | None = None
     if corners is None:
@@ -108,5 +117,5 @@ def build_briefing(
     return Briefing(
         from_frame=from_frame, to_frame=to_frame, rallies=len(rallies), avg_shots=avg,
         longest_shots=longest.shot_count, longest_s=longest.duration_s(fps),
-        shot_counts=dict(counts), landing_zones=zones, low_confidence=low, lines=lines,
+        shot_counts=dict(counts), landing_zones=zones, player_shots=players, low_confidence=low, lines=lines,
     )  # fmt: skip

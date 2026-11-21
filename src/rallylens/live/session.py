@@ -11,6 +11,7 @@ from rallylens.live.briefing import Briefing, build_briefing
 from rallylens.live.incremental import IncrementalEventDetector
 from rallylens.live.segmenter import Rally, RallySegmenter
 from rallylens.vision.court_detector import CourtCorners
+from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 
 
@@ -36,13 +37,16 @@ class LiveEngine:
         self._segmenter = RallySegmenter(fps)
         self._rallies: list[Rally] = []
         self._shots: list[ShotEvent] = []
+        self._dets: list[Detection] = []
         self._start: int | None = None
         self._last = 0
 
     def _handle(self, events: list[ShuttleEvent]) -> None:
         for ev in events:
             if ev.event_type == "hit":
-                shot = classify_hit(ev, self._detector.points, [], self.fps, self.frame_size)
+                shot = classify_hit(
+                    ev, self._detector.points, self._dets, self.fps, self.frame_size
+                )
                 if shot is not None:
                     self._shots.append(shot)
             self._rallies.extend(self._segmenter.push(ev))
@@ -60,12 +64,21 @@ class LiveEngine:
         self._shots.clear()
         self._start = to_frame
 
-    def feed(self, frame_idx: int, points: Sequence[ShuttlePoint]) -> None:
+    def feed(
+        self,
+        frame_idx: int,
+        points: Sequence[ShuttlePoint],
+        detections: Sequence[Detection] = (),
+    ) -> None:
         if self._start is None:
             self._start = frame_idx
         self._last = frame_idx
         for p in points:
             self._detector.push(p)
+        self._dets.extend(detections)
+        keep = frame_idx - 600  # shots are attributed ±15 frames; bound memory
+        if self._dets and self._dets[0].frame_idx < keep:
+            self._dets = [d for d in self._dets if d.frame_idx >= keep]
         self._handle(self._detector.poll(frame_idx))
         self._rallies.extend(self._segmenter.advance(frame_idx))
         if frame_idx - self._start >= self._interval:

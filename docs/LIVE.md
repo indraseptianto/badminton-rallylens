@@ -85,6 +85,9 @@ drop-oldest queue so the models always see fresh frames (dropped count is report
 capture indices keep counting so the clock stays correct). Tested with fake sources/models and
 a real file; a real camera/RTSP feed and sustained real-time on GPU are untested here.
 
-Not done yet: per-frame pose attribution in live mode
-(shots are classified without player IDs), scoreboard input. Camera mode requires
+Pose: `--pose [--pose-device cuda:0]` adds YOLO-pose + ByteTrack per frame, so briefings
+attribute shots per tracked player (`n/a` without it). Live/stream sources reconnect with
+back-off (5 tries); files do not.
+
+Not done yet: scoreboard input, mapping tracker IDs to named players/sides. Camera mode requires
 `rallylens bench` to pass on the target hardware first.
