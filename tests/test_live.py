@@ -171,3 +171,48 @@ def test_frame_source_reads_file(tmp_path) -> None:  # type: ignore[no-untyped-d
         assert (src.info.width, src.info.height) == (64, 48) and src.info.fps == 25.0
     with pytest.raises(RuntimeError):
         FrameSource(str(tmp_path / "missing.mp4"))
+
+
+def test_engine_attributes_shots_to_players() -> None:
+    from rallylens.live.session import LiveEngine
+    from rallylens.vision.detect_track import Detection
+
+    track = zigzag_track()
+    engine = LiveEngine(fps=FPS, frame_size=SIZE, brief_every_s=100.0)
+    for p in track:
+        # a player standing wherever the shuttle is → every hit is attributable
+        det = Detection(
+            frame_idx=p.frame_idx, bbox_xyxy=(p.x - 20, p.y - 20, p.x + 20, p.y + 20),
+            confidence=0.9, keypoints_xy=[], keypoints_conf=[], track_id=7,
+        )  # fmt: skip
+        engine.feed(p.frame_idx, [p], [det])
+    (b,) = engine.finish()
+    assert set(b.player_shots) <= {7} and "n/a (pose" not in b.text()
+
+
+def test_briefing_without_pose_says_na() -> None:
+    seg = RallySegmenter(FPS)
+    seg.push(ev(10)), seg.push(ev(40))
+    b = build_briefing(seg.push(ev(70, "landing")), [], fps=FPS, from_frame=0, to_frame=100)
+    assert b.player_shots == {} and "pose belum aktif" in b.text()
+
+
+def test_frame_source_reconnects_live_but_not_files(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import cv2
+
+    from rallylens.vision.frame_source import FrameSource
+
+    path = tmp_path / "t.mp4"
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (64, 48))
+    for _ in range(3):
+        w.write(np.zeros((48, 64, 3), dtype=np.uint8))
+    w.release()
+    slept: list[float] = []
+    with FrameSource(str(path), sleep=slept.append) as src:
+        assert len(list(src)) == 3 and slept == []  # file end: no reconnect
+    src2 = FrameSource(str(path), reconnect_attempts=2, sleep=slept.append)
+    src2._live = True  # simulate a stream whose source keeps reopening fine
+    it = iter(src2)
+    assert [i for i, _ in zip(range(4), it, strict=False)] == [0, 1, 2, 3]
+    assert src2.reconnects == 1 and slept == [1.0]
+    src2.__exit__()

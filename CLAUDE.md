@@ -25,6 +25,11 @@ CLI subcommands (each writes to a fixed location under `data/`):
 - `ingest <youtube-url>` — download to `data/raw/<video_id>.mp4`. Supports `--start/--end` to clip.
 - `detect <video>` — YOLO11-pose + ByteTrack → `data/detections/<stem>/<stem>_players.jsonl`.
 - `detect-shuttle <video>` — TrackNetV3 → `data/tracks/<stem>/<stem>_shuttle.jsonl`.
+- `detect-events <video>` — landing / hit / out_of_frame events from the shuttle track → `data/events/<stem>/`. `--fps` defaults to the video's own.
+- `detect-shots <video>` — rule-based stroke labels (smash/drive/drop/clear/net) for hit events → `data/shots/<stem>/`.
+- `report <video>` — LLM rally report (needs cloud credentials).
+- `bench <video>` — throughput gate: can this machine run pose + TrackNet at >= 1.2x real time? Exits 1 on fail.
+- `live <camera-index|url|file>` — coach briefings every `--brief-every` s; `--pose` adds player attribution, `--from-track` replays saved tracks without models. See `docs/LIVE.md`.
 - `calibrate <video>` — Hough-based court corners → `data/calibration/<stem>/corners.json`. `--interactive` opens an OpenCV picker.
 - `viz <video>` — needs all three above; renders overlay MP4 and court diagram GIF (with heatmap background) into `data/viz/<stem>/`.
 - `run <url-or-path>` — one-shot ingest + detect.
@@ -50,6 +55,10 @@ This is the only layer allowed to import `ultralytics` / `cv2`. mypy is relaxed 
 
 **`rallylens.pipeline`** — orchestration. Thin functions that wire `vision` modules to `pipeline.io`. `orchestrator.run_full_pipeline` accepts either a local path or a YouTube URL (it dispatches to `ingest.downloader` only when the path doesn't exist on disk). `shuttle.py` and `court.py` mirror this pattern for their respective stages.
 
+**`rallylens.analysis`** — pure logic on saved artifacts: `events/` (BounceDetector rule bank, rescaled to 512x288 model space), `shot_classifier.py` (speed thresholds tuned at 1280 px / 30 fps and normalized by frame size and fps), `metrics.py`. Must not import `viz`. Court geometry (`compute_homography`, `project_point`) lives in `vision/court_geometry.py`.
+
+**`rallylens.live`** — live-mode building blocks, no models or I/O of their own: `incremental.py` (event detector with a settle delay; equals batch output), `segmenter.py` (events → rallies), `briefing.py` (Indonesian coach briefing; shows `n/a` rather than guessing), `queue.py` (thread-safe drop-oldest), `session.py` (`LiveEngine`, `replay_live`), `runner.py` (reader thread + consumer). Frame sources and models stay in `vision/` (`frame_source.py`, `make_frame_pose`, `ShuttleTracker`).
+
 **`rallylens.viz`** — pure rendering on top of the artifacts produced by `pipeline.io`. Reads detections + shuttle track + court corners; writes overlay MP4 and court diagram GIF (the heatmap is rendered as the GIF's background, not a standalone PNG). No model inference here.
 
 **`rallylens.ingest.downloader`** — yt-dlp wrapper with caching. Clipped downloads are cached under a separate filename (`<video_id>_<start>s_<end>s.mp4`) so full and clipped versions coexist.
@@ -59,6 +68,9 @@ This is the only layer allowed to import `ultralytics` / `cv2`. mypy is relaxed 
 **`rallylens.common`** — only cross-cutting helpers (logger, `load_env`, `ensure_dir`, `require_ffmpeg`, `read_video_properties`, `read_frame_at`). Don't grow it; prefer a focused module.
 
 ## Conventions
+
+- `tests/test_architecture.py` enforces layer boundaries and the cv2 import allowlist; run it after moving code between packages.
+- CI (`.github/workflows/python.yml`) runs ruff check, ruff format --check, mypy and pytest — all four must pass before merge.
 
 - Pydantic v2 everywhere; models are `frozen=True` where used as detection records.
 - mypy strict mode is enabled for the whole package except the two `tool.mypy.overrides` blocks in `pyproject.toml`. Don't add new overrides without a strong reason.

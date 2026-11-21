@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import cv2
@@ -26,7 +27,21 @@ def parse_source(spec: str) -> int | str:
 class FrameSource:
     """Context manager yielding ``(capture_index, frame)``; index counts frames read."""
 
-    def __init__(self, spec: str, fps_fallback: float = DEFAULT_FPS) -> None:
+    def __init__(
+        self,
+        spec: str,
+        fps_fallback: float = DEFAULT_FPS,
+        reconnect_attempts: int = 5,
+        backoff_s: float = 1.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._spec = spec
+        # Files end; only live sources (camera index / URL) are worth reconnecting.
+        self._live = spec.isdigit() or "://" in spec
+        self._attempts = reconnect_attempts
+        self._backoff = backoff_s
+        self._sleep = sleep
+        self.reconnects = 0
         self._cap = cv2.VideoCapture(parse_source(spec))
         if not self._cap.isOpened():
             raise RuntimeError(f"cannot open source: {spec}")
@@ -51,6 +66,19 @@ class FrameSource:
         while True:
             ok, frame = self._cap.read()
             if not ok:
+                if self._live and self._reopen():
+                    continue
                 return
             yield idx, frame
             idx += 1
+
+    def _reopen(self) -> bool:
+        """Try to re-open a dropped live source with growing back-off."""
+        for attempt in range(1, self._attempts + 1):
+            self._sleep(self._backoff * attempt)
+            self._cap.release()
+            self._cap = cv2.VideoCapture(parse_source(self._spec))
+            if self._cap.isOpened():
+                self.reconnects += 1
+                return True
+        return False

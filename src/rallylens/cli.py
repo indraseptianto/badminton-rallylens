@@ -293,9 +293,12 @@ def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
     help="TrackNet weights (default: models/shuttle_tracknet.pth).",
 )
 @click.option("--max-seconds", type=float, default=None, help="Stop after this much video time.")
+@click.option("--pose", is_flag=True, help="Also run player pose+tracking (attributes shots).")
+@click.option("--pose-device", default=None, help="e.g. cuda:0, mps, cpu.")
 def live_cmd(
     source: str, from_track: bool, brief_every: float, speed: float, fps: float,
     corners_id: str | None, weights: Path | None, max_seconds: float | None,
+    pose: bool, pose_device: str | None,
 ) -> None:  # fmt: skip
     """Live coach briefings from a camera index (0), stream URL (rtsp://...) or file."""
     from rallylens.live.runner import run_live
@@ -330,10 +333,15 @@ def live_cmd(
             raise click.ClickException("TrackNet weights not found (use --weights)")
         engine = LiveEngine(fps=info.fps, frame_size=size, brief_every_s=brief_every,
                             corners=corners, on_briefing=show)  # fmt: skip
+        pose_fn = None
+        if pose:
+            from rallylens.vision.detect_track import make_frame_pose
+
+            pose_fn = make_frame_pose(device=pose_device)
         max_frames = int(max_seconds * info.fps) if max_seconds else None
         try:
             dropped = run_live(src, tracker.detect, engine, max_frames=max_frames,
-                               flush=tracker.flush)  # fmt: skip
+                               flush=tracker.flush, pose=pose_fn)  # fmt: skip
         except KeyboardInterrupt:
             dropped = 0
             engine.finish()

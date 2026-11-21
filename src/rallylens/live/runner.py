@@ -9,9 +9,11 @@ import numpy as np
 
 from rallylens.live.queue import DropOldestQueue
 from rallylens.live.session import LiveEngine
+from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
 
 Detect = Callable[[np.ndarray, int], list[ShuttlePoint]]
+Pose = Callable[[np.ndarray, int], list[Detection]]
 
 
 def run_live(
@@ -22,6 +24,7 @@ def run_live(
     queue_size: int = 8,
     max_frames: int | None = None,
     flush: Callable[[], list[ShuttlePoint]] | None = None,
+    pose: Pose | None = None,
 ) -> int:
     """Pump frames through ``detect`` into ``engine``; returns frames dropped.
 
@@ -53,7 +56,7 @@ def run_live(
                 continue
             idx, frame = item
             last = idx
-            engine.feed(idx, detect(frame, idx))
+            engine.feed(idx, detect(frame, idx), pose(frame, idx) if pose else ())
     finally:
         stop.set()
         t.join(timeout=2.0)

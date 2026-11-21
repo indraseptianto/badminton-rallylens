@@ -289,6 +289,33 @@ live. See `docs/LIVE.md` for how to read the result.
 | `--pose-device` | ultralytics default | e.g. `cpu`, `cuda:0`, `mps` |
 | `--json-out` | — | Also write the report as JSON |
 
+### `live` — coach briefings during a match
+
+```bash
+uv run rallylens live 0 --pose --corners-from <video_id>        # webcam
+uv run rallylens live rtsp://host/stream --pose --brief-every 60  # network camera
+uv run rallylens live match.mp4 --from-track --speed 1          # replay saved tracks, no models
+```
+
+`SOURCE` is a camera index, a stream URL or a video file. Every `--brief-every`
+seconds of video it prints a short Indonesian briefing: rally count and length,
+stroke mix, landing depth (needs a saved `calibrate` result) and shots per tracked
+player (needs `--pose`). Missing data is shown as `n/a`, never guessed. Run `bench`
+on the target machine first; if the models cannot keep up, frames are dropped
+(reported at the end) and the clock stays correct. Camera and RTSP input are
+untested on real hardware so far. See `docs/LIVE.md`.
+
+| Option | Default | Description |
+|---|---|---|
+| `--from-track` | off | Replay the saved shuttle track instead of running TrackNet |
+| `--pose` / `--pose-device` | off / default | Add YOLO pose + ByteTrack to attribute shots to players |
+| `--brief-every` | 60 | Seconds of video between briefings |
+| `--corners-from` | file stem | `video_id` of the saved court calibration (landing zones) |
+| `--speed` | 0 | `--from-track` only: 1 = real time, 0 = as fast as possible |
+| `--fps` | 30 | Fallback when the camera does not report a frame rate |
+| `--max-seconds` | — | Stop after this much video time |
+| `--weights` | `models/shuttle_tracknet.pth` | TrackNet weights |
+
 ### `calibrate` — court calibration
 
 ```bash
