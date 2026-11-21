@@ -96,6 +96,7 @@ class BounceDetector:
         y: np.ndarray,
         visibility: np.ndarray,
         frame_ids: np.ndarray | None = None,
+        frame_size: tuple[int, int] | None = None,
     ) -> list[ShuttleEvent]:
         """Detect events from a trajectory in original-video pixels.
 
@@ -103,6 +104,12 @@ class BounceDetector:
             x, y: coordinate arrays (original pixel space), same length.
             visibility: 1=observed, 0=occluded/missing.
             frame_ids: real frame indices; defaults to ``arange(len(x))``.
+            frame_size: real ``(width, height)`` of the video. The rule thresholds
+                live in 512×288 model space, so the pixel→model scale must come
+                from the true frame size. When omitted it is *guessed* from the
+                largest observed coordinates, which under-estimates the frame
+                whenever the shuttle never reaches the right/bottom edge and then
+                inflates speeds (spurious events). Always pass it when known.
         """
         x = np.asarray(x, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64)
@@ -117,9 +124,14 @@ class BounceDetector:
         if len(frame_ids_arr) != len(x):
             raise ValueError("frame_ids must match the trajectory length")
 
-        # Original image size (from observed coords) for mapping back.
-        w = float(np.nanmax(x) + 1)
-        h = float(np.nanmax(y) + 1)
+        # Original image size for mapping to/from model space.
+        if frame_size is not None:
+            if frame_size[0] <= 0 or frame_size[1] <= 0:
+                raise ValueError(f"frame_size must be positive, got {frame_size}")
+            w, h = float(frame_size[0]), float(frame_size[1])
+        else:
+            w = float(np.nanmax(x) + 1)
+            h = float(np.nanmax(y) + 1)
 
         # Rescale into model space where thresholds were tuned.
         x_m = x * (MODEL_W / w)
@@ -157,6 +169,7 @@ class BounceDetector:
         frame_idxs: np.ndarray,
         xs: np.ndarray,
         ys: np.ndarray,
+        frame_size: tuple[int, int] | None = None,
     ) -> list[ShuttleEvent]:
         """Detect events from sparse per-frame observations.
 
@@ -193,6 +206,7 @@ class BounceDetector:
             dense_y,
             visibility,
             frame_ids=np.arange(min_f, max_f + 1),
+            frame_size=frame_size,
         )
 
 
