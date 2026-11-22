@@ -8,8 +8,8 @@ from collections.abc import Sequence
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
+from rallylens.analysis.rallies import Rally
 from rallylens.analysis.shot_classifier import ShotEvent
-from rallylens.live.segmenter import Rally
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.court_geometry import MARGIN, NET_Y, compute_homography, project_point
 

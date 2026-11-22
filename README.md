@@ -316,6 +316,21 @@ untested on real hardware so far. See `docs/LIVE.md`.
 | `--max-seconds` | — | Stop after this much video time |
 | `--weights` | `models/shuttle_tracknet.pth` | TrackNet weights |
 
+### `heatmap` — per-player dashboard
+
+```bash
+uv run rallylens heatmap <video_path> [--players 2]
+```
+
+Renders one PNG per tracked player to `data/viz/<video_id>/heatmap_player<ID>.png`: movement
+heatmap (distance, speed), shot distribution, last-shot positions, rally-ending positions,
+shot types and rally length by court area, plus auto-written key insights. Needs `detect`
+(with tracking) and `calibrate`; `detect-events` + `detect-shots` fill the shot and rally
+panels (they say so on the panel when missing). Notes: `#ID` is the tracker's ID, not a
+name; positions are ground-plane estimates from one camera (feet, never the airborne
+shuttle); "max speed" is the 99th percentile of valid steps; scoring is not tracked, so
+there is no "points won" panel — rally endings are shown instead.
+
 ### `calibrate` — court calibration
 
 ```bash

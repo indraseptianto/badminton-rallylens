@@ -6,10 +6,10 @@ import time
 from collections.abc import Callable, Sequence
 
 from rallylens.analysis.events.detector import ShuttleEvent
+from rallylens.analysis.rallies import Rally, RallySegmenter
 from rallylens.analysis.shot_classifier import ShotEvent, classify_hit
 from rallylens.live.briefing import Briefing, build_briefing
 from rallylens.live.incremental import IncrementalEventDetector
-from rallylens.live.segmenter import Rally, RallySegmenter
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint

@@ -72,7 +72,7 @@ shuttle track frame by frame through the same components a camera loop will use:
 - `live/incremental.py` — re-runs the batch `BounceDetector` and releases an event only
   after `settle_s` (0.3 s) of newer frames exist, so live and batch results match
   (tested: `test_incremental_equals_batch`).
-- `live/segmenter.py` — events → rallies (first hit → landing, or 4 s of silence).
+- `analysis/rallies.py` — events → rallies (first hit → landing, or 4 s of silence).
 - `live/briefing.py` — Indonesian coach briefing per interval. Shows `n/a` instead of
   guessing (no calibration → no landing zones; < 5 shots → counts, no percentages).
 - `live/queue.py` — drop-oldest bounded queue for the camera loop.
