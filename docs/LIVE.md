@@ -91,3 +91,23 @@ back-off (5 tries); files do not.
 
 Not done yet: scoreboard input, mapping tracker IDs to named players/sides. Camera mode requires
 `rallylens bench` to pass on the target hardware first.
+
+### Per-rally summary and shot history
+
+Every time a rally closes, `live` prints a summary (`--no-rallies` to silence) and,
+with `--shots`, each shot as it is classified:
+
+```
+Reli #3 (84s, 9.4 dtk, 9 pukulan)
+  pemain #1: 5 pukulan, 14.2 m | pemain #2: 4 pukulan, 11.0 m
+  Pukulan: 1.P1 clear → 2.P2 drop → 3.P1 net → …
+  Jenis: clear 3, drop 3, smash 2, net 1
+  Jatuh di zona belakang
+```
+
+Built by `live/rally_summary.py` from the closed rally, its shots and the player feet
+seen during it. Honesty rules: no `--pose` → per-player lines say `n/a`; no calibration →
+distance and landing zone are `n/a`; a rally that ended because the shuttle vanished is
+labelled "tidak jelas" instead of given a landing. Distance uses the same smoothed,
+glitch-filtered movement as the heatmap dashboard. Shots and summaries do not depend on
+`--brief-every` (tested). Inspired by the "Rally Information" panel in the reference videos.

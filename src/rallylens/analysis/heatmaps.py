@@ -65,7 +65,7 @@ def zone_of(y_px: float) -> str:
     return ("front", "mid", "back")[min(2, int(dist * 3))]
 
 
-def _movement(
+def movement_stats(
     frames: list[int], pts: list[tuple[int, int]], fps: float
 ) -> tuple[float | None, float | None, float | None]:
     if len(pts) < SMOOTH_WINDOW + 1:
@@ -137,7 +137,7 @@ def build_player_heatmaps(
     out: list[PlayerHeatmap] = []
     for tid in ids:
         seq = feet.get(tid, [])
-        dist, avg, mx = _movement([f for f, _ in seq], [p for _, p in seq], fps)
+        dist, avg, mx = movement_stats([f for f, _ in seq], [p for _, p in seq], fps)
         shot_pts: list[ShotPoint] = []
         last_pts: list[ShotPoint] = []
         endings: list[tuple[int, int]] = []
