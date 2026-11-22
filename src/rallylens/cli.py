@@ -7,10 +7,12 @@ from pathlib import Path
 import click
 
 from rallylens import __version__
+from rallylens.analysis.shot_classifier import ShotEvent
 from rallylens.common import get_logger, load_env
 from rallylens.domain.video import is_likely_youtube_url
 from rallylens.ingest.downloader import download_video, parse_time
 from rallylens.live.briefing import Briefing
+from rallylens.live.rally_summary import RallySummary
 from rallylens.pipeline import (
     run_court_detection,
     run_court_detection_interactive,
@@ -293,12 +295,25 @@ def detect_shots_cmd(video_path: Path, fps: float | None) -> None:
     help="TrackNet weights (default: models/shuttle_tracknet.pth).",
 )
 @click.option("--max-seconds", type=float, default=None, help="Stop after this much video time.")
+@click.option(
+    "--shots/--no-shots",
+    "show_shots",
+    default=False,
+    help="Print each shot as it is classified (shot history).",
+)
+@click.option(
+    "--rallies/--no-rallies",
+    "show_rallies",
+    default=True,
+    show_default=True,
+    help="Print a summary after every rally.",
+)
 @click.option("--pose", is_flag=True, help="Also run player pose+tracking (attributes shots).")
 @click.option("--pose-device", default=None, help="e.g. cuda:0, mps, cpu.")
 def live_cmd(
     source: str, from_track: bool, brief_every: float, speed: float, fps: float,
     corners_id: str | None, weights: Path | None, max_seconds: float | None,
-    pose: bool, pose_device: str | None,
+    show_shots: bool, show_rallies: bool, pose: bool, pose_device: str | None,
 ) -> None:  # fmt: skip
     """Live coach briefings from a camera index (0), stream URL (rtsp://...) or file."""
     from rallylens.live.runner import run_live
@@ -317,6 +332,15 @@ def live_cmd(
     def show(b: Briefing) -> None:
         click.echo(b.text() + "\n")
 
+    def show_rally(r: RallySummary) -> None:
+        if show_rallies:
+            click.echo(r.text() + "\n")
+
+    def show_shot(sh: ShotEvent) -> None:
+        if show_shots:
+            who = f"P{sh.player_track_id}" if sh.player_track_id is not None else "?"
+            click.echo(f"  pukulan: {who} {sh.shot_type} (frame {sh.frame_idx})")
+
     with FrameSource(source, fps_fallback=fps) as src:
         info = src.info
         size = (info.width, info.height)
@@ -326,13 +350,15 @@ def live_cmd(
             except FileNotFoundError:
                 raise click.ClickException("no saved shuttle track; run detect-shuttle") from None
             replay_live(track, fps=info.fps, frame_size=size, brief_every_s=brief_every,
-                        corners=corners, speed=speed, on_briefing=show)  # fmt: skip
+                        corners=corners, speed=speed, on_briefing=show,
+                        on_rally=show_rally, on_shot=show_shot)  # fmt: skip
             return
         tracker = ShuttleTracker(weights)
         if not tracker.enabled:
             raise click.ClickException("TrackNet weights not found (use --weights)")
         engine = LiveEngine(fps=info.fps, frame_size=size, brief_every_s=brief_every,
-                            corners=corners, on_briefing=show)  # fmt: skip
+                            corners=corners, on_briefing=show,
+                            on_rally=show_rally, on_shot=show_shot)  # fmt: skip
         pose_fn = None
         if pose:
             from rallylens.vision.detect_track import make_frame_pose

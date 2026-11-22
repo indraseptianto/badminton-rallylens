@@ -10,6 +10,7 @@ from rallylens.analysis.rallies import Rally, RallySegmenter
 from rallylens.analysis.shot_classifier import ShotEvent, classify_hit
 from rallylens.live.briefing import Briefing, build_briefing
 from rallylens.live.incremental import IncrementalEventDetector
+from rallylens.live.rally_summary import RallySummary, build_rally_summary
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.detect_track import Detection
 from rallylens.vision.shuttle_tracker import ShuttlePoint
@@ -26,11 +27,17 @@ class LiveEngine:
         brief_every_s: float = 60.0,
         corners: CourtCorners | None = None,
         on_briefing: Callable[[Briefing], None] | None = None,
+        on_rally: Callable[[RallySummary], None] | None = None,
+        on_shot: Callable[[ShotEvent], None] | None = None,
     ) -> None:
         self.fps = fps
         self.frame_size = frame_size
         self.corners = corners
         self.on_briefing = on_briefing
+        self.on_rally = on_rally
+        self.on_shot = on_shot
+        self.rally_summaries: list[RallySummary] = []
+        self._recent_shots: list[ShotEvent] = []  # survives briefing resets
         self.briefings: list[Briefing] = []
         self._interval = max(1, round(brief_every_s * fps))
         self._detector = IncrementalEventDetector(fps, frame_size)
@@ -49,7 +56,24 @@ class LiveEngine:
                 )
                 if shot is not None:
                     self._shots.append(shot)
-            self._rallies.extend(self._segmenter.push(ev))
+                    self._recent_shots.append(shot)
+                    if self.on_shot:
+                        self.on_shot(shot)
+            self._close(self._segmenter.push(ev))
+
+    def _close(self, rallies: list[Rally]) -> None:
+        for r in rallies:
+            self._rallies.append(r)
+            summary = build_rally_summary(
+                r, len(self.rally_summaries) + 1, self._recent_shots, self._dets,
+                fps=self.fps, corners=self.corners,
+            )  # fmt: skip
+            self.rally_summaries.append(summary)
+            if self.on_rally:
+                self.on_rally(summary)
+        if rallies:
+            done = rallies[-1].end_frame
+            self._recent_shots = [s for s in self._recent_shots if s.frame_idx > done]
 
     def _brief(self, to_frame: int) -> None:
         assert self._start is not None
@@ -76,11 +100,12 @@ class LiveEngine:
         for p in points:
             self._detector.push(p)
         self._dets.extend(detections)
-        keep = frame_idx - 600  # shots are attributed ±15 frames; bound memory
+        keep = frame_idx - 1800  # a rally's feet must stay available until it closes; bound memory
         if self._dets and self._dets[0].frame_idx < keep:
             self._dets = [d for d in self._dets if d.frame_idx >= keep]
+        self._recent_shots = [x for x in self._recent_shots if x.frame_idx >= keep]
         self._handle(self._detector.poll(frame_idx))
-        self._rallies.extend(self._segmenter.advance(frame_idx))
+        self._close(self._segmenter.advance(frame_idx))
         if frame_idx - self._start >= self._interval:
             self._brief(frame_idx)
 
@@ -88,7 +113,7 @@ class LiveEngine:
         if self._start is None:
             return self.briefings
         self._handle(self._detector.flush())
-        self._rallies.extend(self._segmenter.advance(self._last + 10_000))
+        self._close(self._segmenter.advance(self._last + 10_000))
         if self._last - self._start > 0:
             self._brief(self._last)
         return self.briefings
@@ -103,6 +128,8 @@ def replay_live(
     corners: CourtCorners | None = None,
     speed: float = 0.0,
     on_briefing: Callable[[Briefing], None] | None = None,
+    on_rally: Callable[[RallySummary], None] | None = None,
+    on_shot: Callable[[ShotEvent], None] | None = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[Briefing]:
     """Feed ``track`` frame by frame; ``speed`` 1.0 = real time, 0 = as fast as possible."""
@@ -113,7 +140,7 @@ def replay_live(
         by_frame.setdefault(p.frame_idx, []).append(p)
     engine = LiveEngine(
         fps=fps, frame_size=frame_size, brief_every_s=brief_every_s, corners=corners,
-        on_briefing=on_briefing,
+        on_briefing=on_briefing, on_rally=on_rally, on_shot=on_shot,
     )  # fmt: skip
     for f in range(min(by_frame), max(by_frame) + 1):
         if speed > 0:

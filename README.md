@@ -314,6 +314,8 @@ untested on real hardware so far. See `docs/LIVE.md`.
 | `--speed` | 0 | `--from-track` only: 1 = real time, 0 = as fast as possible |
 | `--fps` | 30 | Fallback when the camera does not report a frame rate |
 | `--max-seconds` | — | Stop after this much video time |
+| `--rallies` / `--no-rallies` | on | Print a summary after every rally (shots, distance per player, landing zone) |
+| `--shots` / `--no-shots` | off | Print each shot as it is classified |
 | `--weights` | `models/shuttle_tracknet.pth` | TrackNet weights |
 
 ### `heatmap` — per-player dashboard
