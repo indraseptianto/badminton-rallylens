@@ -348,6 +348,36 @@ def live_cmd(
         click.echo(f"selesai; {dropped} frame di-drop karena model tidak kejar real-time")
 
 
+@cli.command("heatmap")
+@click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--fps", type=float, default=None, help="Override the video framerate.")
+@click.option(
+    "--players",
+    type=int,
+    default=2,
+    show_default=True,
+    help="Number of most-tracked players to render.",
+)
+def heatmap_cmd(video_path: Path, fps: float | None, players: int) -> None:
+    """Per-player heatmap dashboard (movement, shots, last shot, endings, types, rally length).
+
+    Needs `detect` (with tracking) and `calibrate`; `detect-events` and `detect-shots`
+    fill the shot and rally panels.
+    """
+    from rallylens.pipeline.heatmap import run_heatmap_pipeline
+
+    try:
+        paths = run_heatmap_pipeline(video_path, video_path.stem, fps=fps, top_n=players)
+    except FileNotFoundError as exc:
+        raise click.ClickException(
+            f"missing input: {exc.filename}; run detect/calibrate first"
+        ) from None
+    if not paths:
+        raise click.ClickException("no tracked players found in the detections")
+    for pth in paths:
+        click.echo(f"heatmap: {pth}")
+
+
 @cli.command("calibrate")
 @click.argument("video_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(

@@ -30,6 +30,7 @@ CLI subcommands (each writes to a fixed location under `data/`):
 - `report <video>` — LLM rally report (needs cloud credentials).
 - `bench <video>` — throughput gate: can this machine run pose + TrackNet at >= 1.2x real time? Exits 1 on fail.
 - `live <camera-index|url|file>` — coach briefings every `--brief-every` s; `--pose` adds player attribution, `--from-track` replays saved tracks without models. See `docs/LIVE.md`.
+- `heatmap <video>` — per-player 6-panel dashboard PNG (movement, shots, last shot, rally endings, shot types, rally length) → `data/viz/<stem>/heatmap_player<ID>.png`.
 - `calibrate <video>` — Hough-based court corners → `data/calibration/<stem>/corners.json`. `--interactive` opens an OpenCV picker.
 - `viz <video>` — needs all three above; renders overlay MP4 and court diagram GIF (with heatmap background) into `data/viz/<stem>/`.
 - `run <url-or-path>` — one-shot ingest + detect.
@@ -55,11 +56,11 @@ This is the only layer allowed to import `ultralytics` / `cv2`. mypy is relaxed 
 
 **`rallylens.pipeline`** — orchestration. Thin functions that wire `vision` modules to `pipeline.io`. `orchestrator.run_full_pipeline` accepts either a local path or a YouTube URL (it dispatches to `ingest.downloader` only when the path doesn't exist on disk). `shuttle.py` and `court.py` mirror this pattern for their respective stages.
 
-**`rallylens.analysis`** — pure logic on saved artifacts: `events/` (BounceDetector rule bank, rescaled to 512x288 model space), `shot_classifier.py` (speed thresholds tuned at 1280 px / 30 fps and normalized by frame size and fps), `metrics.py`. Must not import `viz`. Court geometry (`compute_homography`, `project_point`) lives in `vision/court_geometry.py`.
+**`rallylens.analysis`** — pure logic on saved artifacts: `events/` (BounceDetector rule bank, rescaled to 512x288 model space), `shot_classifier.py` (speed thresholds tuned at 1280 px / 30 fps and normalized by frame size and fps), `metrics.py`, `rallies.py` (events → rallies, used by batch and live), `heatmaps.py` (per-player movement/shot statistics; pure data). Must not import `viz`. Court geometry (`compute_homography`, `project_point`) lives in `vision/court_geometry.py`.
 
-**`rallylens.live`** — live-mode building blocks, no models or I/O of their own: `incremental.py` (event detector with a settle delay; equals batch output), `segmenter.py` (events → rallies), `briefing.py` (Indonesian coach briefing; shows `n/a` rather than guessing), `queue.py` (thread-safe drop-oldest), `session.py` (`LiveEngine`, `replay_live`), `runner.py` (reader thread + consumer). Frame sources and models stay in `vision/` (`frame_source.py`, `make_frame_pose`, `ShuttleTracker`).
+**`rallylens.live`** — live-mode building blocks, no models or I/O of their own: `incremental.py` (event detector with a settle delay; equals batch output), `analysis/rallies.py` (shared rally segmenter), `briefing.py` (Indonesian coach briefing; shows `n/a` rather than guessing), `queue.py` (thread-safe drop-oldest), `session.py` (`LiveEngine`, `replay_live`), `runner.py` (reader thread + consumer). Frame sources and models stay in `vision/` (`frame_source.py`, `make_frame_pose`, `ShuttleTracker`).
 
-**`rallylens.viz`** — pure rendering on top of the artifacts produced by `pipeline.io`. Reads detections + shuttle track + court corners; writes overlay MP4 and court diagram GIF (the heatmap is rendered as the GIF's background, not a standalone PNG). No model inference here.
+**`rallylens.viz`** — pure rendering (incl. `heatmap_dashboard.py`) on top of the artifacts produced by `pipeline.io`. Reads detections + shuttle track + court corners; writes overlay MP4 and court diagram GIF (the heatmap is rendered as the GIF's background, not a standalone PNG). No model inference here.
 
 **`rallylens.ingest.downloader`** — yt-dlp wrapper with caching. Clipped downloads are cached under a separate filename (`<video_id>_<start>s_<end>s.mp4`) so full and clipped versions coexist.
 

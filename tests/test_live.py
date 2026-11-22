@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 
 from rallylens.analysis.events.detector import BounceDetector, ShuttleEvent
+from rallylens.analysis.rallies import RallySegmenter
 from rallylens.live.briefing import build_briefing, landing_zone
 from rallylens.live.incremental import IncrementalEventDetector
 from rallylens.live.queue import DropOldestQueue
-from rallylens.live.segmenter import RallySegmenter
 from rallylens.live.session import replay_live
 from rallylens.vision.court_detector import CourtCorners
 from rallylens.vision.shuttle_tracker import ShuttlePoint

@@ -126,6 +126,10 @@ def viz_overlay_path(video_id: str) -> Path:
     return VIZ_DIR / video_id / f"{video_id}_overlay.mp4"
 
 
+def viz_heatmap_path(video_id: str, track_id: int) -> Path:
+    return VIZ_DIR / video_id / f"heatmap_player{track_id}.png"
+
+
 def viz_court_path(video_id: str) -> Path:
     return VIZ_DIR / video_id / "viz_court.gif"
 
